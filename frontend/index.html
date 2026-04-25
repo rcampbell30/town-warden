@@ -25,18 +25,36 @@
     .alert.high, .risk-high, .log-level-high, .log-level-critical { border-left-color: #ef4444; background: #231216; }
     .alert.medium, .risk-medium, .log-level-warning { border-left-color: #f59e0b; background: #221b11; }
     .alert.low, .risk-low { border-left-color: #60a5fa; }
-    .log-level-success { border-left-color: #22c55e; }
+    .comms.info { border-left-color: #38bdf8; }
+    .comms.warning { border-left-color: #facc15; background: #1f1a10; }
+    .comms.error { border-left-color: #ef4444; background: #1f1115; }
+    .source-real { color: #22c55e; font-weight: bold; }
+    .source-fake { color: #facc15; font-weight: bold; }
+    .response-action { color: #22c55e; font-weight: bold; }
+    .meta { color: #9ca3af; font-size: 13px; margin-top: 6px; }
+    .agent { font-weight: bold; color: #bfdbfe; }
 
-    .agent-badge { display: inline-block; font-size: 11px; border-radius: 999px; padding: 2px 8px; margin-bottom: 6px; color: #fff; }
-    .agent-source-monitor { background: #2563eb; }
-    .agent-deduplication-guard { background: #d97706; }
-    .agent-incident-warden, .agent-response-warden { background: #b91c1c; }
-    .agent-weather-warden { background: #1d4ed8; }
-    .agent-risk-engine, .agent-trend-warden, .agent-critical-zone-warden { background: #7e22ce; }
-    .agent-default { background: #475569; }
+    .zones { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+    .zone { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; text-align: center; color: #cbd5e1; transition: all .25s ease; }
+    .zone.active { border-color: #38bdf8; box-shadow: 0 0 18px rgba(56,189,248,.35); color: white; }
+    .zone.pattern { border-color: #facc15; box-shadow: 0 0 24px rgba(250,204,21,.45); color: white; }
+    .zone.critical { border-color: #ef4444; background: #1f1115; box-shadow: 0 0 34px rgba(239,68,68,.85); color: white; animation: pulseCritical 1.2s infinite alternate; }
 
-    .controls-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
-    button { background: #2563eb; color: #fff; border: none; padding: 8px 12px; border-radius: 10px; cursor: pointer; font-weight: 700; }
+    .schematic-map { background: #06111d; border: 1px solid #263b57; border-radius: 24px; padding: 18px; margin-top: 16px; }
+    .coastline { display: grid; grid-template-rows: repeat(4, minmax(70px, auto)); gap: 12px; border-left: 6px solid #38bdf8; padding-left: 18px; }
+    .map-zone { background: #0f172a; border: 1px solid #334155; border-radius: 18px; padding: 18px; transition: all .25s ease; }
+    .map-zone.active { border-color: #38bdf8; box-shadow: 0 0 18px rgba(56,189,248,.35); }
+    .map-zone.pattern { border-color: #facc15; box-shadow: 0 0 24px rgba(250,204,21,.45); }
+    .map-zone.critical { border-color: #ef4444; background: #1f1115; box-shadow: 0 0 34px rgba(239,68,68,.85); }
+
+    .risk-bar-bg { background: #020617; border-radius: 999px; overflow: hidden; margin-top: 8px; height: 12px; }
+    .risk-bar { height: 12px; background: linear-gradient(90deg, #22c55e, #facc15, #ef4444); }
+    .critical-banner { display: none; background: #1f1115; border: 1px solid #ef4444; color: #fecaca; padding: 18px; border-radius: 18px; margin-bottom: 24px; box-shadow: 0 0 30px rgba(239,68,68,.35); font-weight: bold; }
+
+    button { background: #2563eb; color: white; border: none; padding: 10px 14px; border-radius: 12px; cursor: pointer; font-weight: bold; margin-bottom: 16px; }
+    button:hover { background: #1d4ed8; }
+    button.danger { background: #991b1b; }
+    button.danger:hover { background: #7f1d1d; }
     button.secondary { background: #334155; }
     button.danger { background: #991b1b; }
 
@@ -107,15 +125,13 @@
     <div class="panel"><h2>Agent Alerts</h2><div id="alerts"><div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div></div></div>
   </div>
 
-  <div class="panel">
-    <h2>Agent Comms Log</h2>
-    <div class="controls-row">
-      <button onclick="pauseComms()">Pause log updates</button>
-      <button class="secondary" onclick="resumeComms()">Resume log updates</button>
-      <button class="danger" onclick="clearVisibleComms()">Clear visible log</button>
-      <div class="meta" id="commsState">Live updates active.</div>
-    </div>
-    <div id="agentComms"><div class="meta">No internal agent messages yet.</div></div>
+  <div class="grid">
+    <div class="panel"><h2>Live Civic Events</h2><div id="events"><div class="meta">No fresh unseen events yet. Deduplication may be holding repeated source records back.</div></div></div>
+    <div class="panel"><h2>Agent Alerts</h2><div id="alerts"><div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div></div></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel"><h2>Agent Comms Log</h2><div id="agentComms"><div class="meta">No internal agent messages yet.</div></div></div>
   </div>
 
   <div class="grid-2">
@@ -275,6 +291,22 @@ async function devAction(path, confirmFirst=false){
 function clearZoneStates(){ document.querySelectorAll(".map-zone").forEach(zone => zone.classList.remove("active", "pattern", "critical")); }
 function zoneElements(location){ const suffix = String(location || "").replaceAll(" ", "-"); return [document.getElementById("mapzone-" + suffix)].filter(Boolean); }
 
+function renderAgentComms(agentLog) {
+  if (!Array.isArray(agentLog) || !agentLog.length) {
+    document.getElementById("agentComms").innerHTML = `<div class="meta">No internal agent messages yet.</div>`;
+    return;
+  }
+
+  const latest = [...agentLog].reverse().slice(0, 40);
+  document.getElementById("agentComms").innerHTML = latest.map(entry => `
+    <div class="event comms ${entry.level || "info"}">
+      <div class="agent">${entry.agent || "System"}</div>
+      <div>${entry.message || "No message."}</div>
+      <div class="meta">${entry.timestamp || ""}</div>
+    </div>
+  `).join("");
+}
+
 ws.onmessage = (message) => {
   const data = JSON.parse(message.data);
   const event = data.event;
@@ -282,6 +314,7 @@ ws.onmessage = (message) => {
   const riskMap = data.risk_map || {};
   const criticalZones = data.critical_zones || [];
   const isWaiting = data.waiting_for_real_events || event?.type === "waiting";
+  renderAgentComms(data.agent_log || []);
 
   updateSummary(data);
   renderSourceHealth({ sources: data.source_health || data.sources });
@@ -291,18 +324,46 @@ ws.onmessage = (message) => {
   waitingCard.style.display = isWaiting ? "block" : "none";
   waitingCard.innerText = event?.text || "Waiting for next source refresh...";
 
-  if(event && !isWaiting){
-    const existing = document.getElementById("events").innerHTML;
-    document.getElementById("events").innerHTML = `<div class="event"><strong>${event.type.toUpperCase()}</strong> — ${event.location}<br>${event.text}<div class="meta">${event.timestamp || ""}</div></div>` + existing;
-  }
-  if(!document.getElementById("events").innerText.trim()){
-    document.getElementById("events").innerHTML = `<div class="meta">No fresh unseen events. Deduplication is active and the system is waiting for the next source refresh.</div>`;
+  if (!document.getElementById("events").innerHTML.trim()) {
+    document.getElementById("events").innerHTML = `<div class="meta">No fresh unseen events yet. Deduplication may be holding repeated source records back.</div>`;
   }
 
-  if(alerts.length){
-    document.getElementById("alerts").innerHTML = alerts.map(alert => `<div class="alert ${alert.severity}"><strong>${alert.agent}</strong><br>${alert.location} — ${alert.message}</div>`).join("") + document.getElementById("alerts").innerHTML;
-  } else if(!document.getElementById("alerts").innerText.trim()) {
+  const banner = document.getElementById("criticalBanner");
+  if (criticalZones.length > 0) {
+    banner.style.display = "block";
+    banner.innerText = "CRITICAL ZONE MODE ACTIVE: " + criticalZones.join(", ");
+  } else {
+    banner.style.display = "none";
+  }
+
+  const alertHtml = alerts.map(alert => `
+    <div class="alert ${alert.severity}">
+      <div class="agent">${alert.agent}</div>
+      <strong>${alert.location}</strong><br>
+      ${alert.message}
+      <div class="meta">Severity: ${alert.severity.toUpperCase()}</div>
+      ${alert.caused_by ? `<div class="meta">Caused by: ${alert.caused_by}</div>` : ""}
+      ${alert.type === "response_signal" ? `<div class="meta response-action">Action: ${alert.action}</div>` : ""}
+    </div>
+  `).join("");
+
+  if (alertHtml) {
+    document.getElementById("alerts").innerHTML = alertHtml + document.getElementById("alerts").innerHTML;
+  } else if (!document.getElementById("alerts").innerHTML.trim()) {
     document.getElementById("alerts").innerHTML = `<div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div>`;
+  }
+
+  const riskEntries = Object.entries(riskMap).sort((a, b) => b[1] - a[1]);
+  document.getElementById("risk").innerHTML = riskEntries.length ? riskEntries.map(([location, value]) => {
+    const rounded = Math.round(value);
+    const width = Math.min(rounded, 100);
+    return `<div class="risk-row ${riskClass(value)}"><strong>${location}</strong><div class="meta">Risk pressure: ${rounded}</div><div class="risk-bar-bg"><div class="risk-bar" style="width:${width}%"></div></div></div>`;
+  }).join("") : `<div class="meta">No accumulated zone risk yet.</div>`;
+
+  clearZoneStates();
+
+  if (event && !isWaiting) {
+    zoneElements(event.location).forEach(zone => zone.classList.add("active"));
   }
 
   const riskEntries = Object.entries(riskMap).sort((a,b) => b[1]-a[1]);

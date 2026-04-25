@@ -51,8 +51,6 @@ duplicate_count = 0
 last_source_fetch_time = None
 MAX_AGENT_LOGS = 150
 agent_log = deque(maxlen=MAX_AGENT_LOGS)
-idle_cycle_count = 0
-idle_cycle_marker = None
 
 source_health = {
     "Police.uk": {
@@ -94,13 +92,12 @@ source_health = {
 }
 
 
-def log_agent(agent, message, level="info", data=None, entry_type="general"):
+def log_agent(agent, message, level="info", data=None):
     entry = {
         "timestamp": datetime.now().isoformat(),
         "agent": agent,
         "message": message,
         "level": level,
-        "type": entry_type,
     }
     if data is not None:
         entry["data"] = data
@@ -111,33 +108,7 @@ def recent_agent_log():
     return list(agent_log)
 
 
-def log_idle_cycle():
-    global idle_cycle_count
-    global idle_cycle_marker
-
-    marker = last_source_fetch_time.isoformat() if last_source_fetch_time else "initial"
-    if marker != idle_cycle_marker:
-        idle_cycle_marker = marker
-        idle_cycle_count = 1
-        log_agent(
-            "Source Monitor",
-            "Source Monitor idle - repeated 1 cycle",
-            level="warning",
-            data={"repeat_cycles": idle_cycle_count},
-            entry_type="idle",
-        )
-        return
-
-    idle_cycle_count += 1
-    for entry in reversed(agent_log):
-        if entry.get("agent") == "Source Monitor" and entry.get("type") == "idle":
-            entry["message"] = f"Source Monitor idle - repeated {idle_cycle_count} cycles"
-            entry["timestamp"] = datetime.now().isoformat()
-            entry["data"] = {"repeat_cycles": idle_cycle_count}
-            break
-
-
-log_agent("Source Monitor", "Backend startup complete. Awaiting source refresh cycle.", entry_type="startup")
+log_agent("Source Monitor", "Backend startup complete. Awaiting source refresh cycle.")
 
 
 def update_source_health(
@@ -177,12 +148,7 @@ def seconds_until_next_source_refresh():
 def fetch_real_events():
     """Fetch all connector events, deduplicate, then return only new events."""
     global duplicate_count
-    log_agent(
-        "Source Monitor",
-        "Source refresh started.",
-        data={"refresh_window_seconds": SOURCE_REFRESH_SECONDS},
-        entry_type="source_refresh",
-    )
+    log_agent("Source Monitor", "Source refresh started.", data={"refresh_window_seconds": SOURCE_REFRESH_SECONDS})
 
     fetched_events = []
     fetched_events += police_uk.fetch_events(update_source_health)
@@ -222,7 +188,6 @@ def fetch_real_events():
             f"Skipped duplicate records from {source}.",
             level="warning",
             data={"duplicates_skipped": count},
-            entry_type="deduplication",
         )
 
     for source_name in ["Police.uk", "Open-Meteo", "Street Manager"]:
@@ -236,13 +201,11 @@ def fetch_real_events():
     log_agent(
         "Source Monitor",
         "Source refresh completed.",
-        level="success",
         data={
             "records_fetched": len(fetched_events),
             "new_events_accepted": len(new_events),
             "duplicates_skipped_cycle": sum(duplicates_by_source.values()),
         },
-        entry_type="source_refresh",
     )
     return new_events
 
@@ -253,13 +216,7 @@ def force_source_refresh():
 
     last_source_fetch_time = datetime.now()
     real_event_queue = fetch_real_events()
-    log_agent(
-        "Source Monitor",
-        "Manual source refresh completed.",
-        level="success",
-        data={"queued_events": len(real_event_queue)},
-        entry_type="source_refresh",
-    )
+    log_agent("Source Monitor", "Manual source refresh completed.", data={"queued_events": len(real_event_queue)})
     return len(real_event_queue)
 
 
@@ -284,13 +241,14 @@ def get_next_event():
         return real_event_queue.pop(0)
 
     if ALLOW_SIMULATION:
-        log_agent(
-            "Source Monitor",
-            "No real events available; simulation fallback emitted an event.",
-            level="warning",
-            entry_type="simulation",
-        )
+        log_agent("Source Monitor", "No real events available; simulation fallback emitted an event.", level="warning")
         return simulation.generate_event()
+
+    log_agent(
+        "Source Monitor",
+        "No new event available. Waiting for next source refresh.",
+        data={"seconds_until_next_refresh": seconds_until_next_source_refresh()},
+    )
     return None
 
 
@@ -311,7 +269,6 @@ def update_risk(alerts):
             "Risk Engine",
             "Risk map updated from active alerts.",
             data={"alerts_processed": len(alerts), "locations": list(risk_map.keys()), "prior_locations": list(before.keys())},
-            entry_type="risk",
         )
 
 
@@ -324,75 +281,70 @@ def calculate_health(alerts):
 
 def run_agents(events):
     primary_signals = []
-    log_agent("Infrastructure Warden", "Checking recent events.", data={"event_count": len(events)}, entry_type="agent_check")
+    log_agent("Infrastructure Warden", "Checking recent events.", data={"event_count": len(events)})
     infra_signals = infrastructure_warden(events)
     if not infra_signals:
-        log_agent("Infrastructure Warden", "No alerts generated from recent events.", entry_type="agent_check")
+        log_agent("Infrastructure Warden", "No alerts generated from recent events.")
     primary_signals += infra_signals
 
-    log_agent("Waste Warden", "Checking recent events.", data={"event_count": len(events)}, entry_type="agent_check")
+    log_agent("Waste Warden", "Checking recent events.", data={"event_count": len(events)})
     waste_signals = waste_warden(events)
     if not waste_signals:
-        log_agent("Waste Warden", "No alerts generated from recent events.", entry_type="agent_check")
+        log_agent("Waste Warden", "No alerts generated from recent events.")
     primary_signals += waste_signals
 
-    log_agent("Incident Warden", "Checking recent events.", data={"event_count": len(events)}, entry_type="agent_check")
+    log_agent("Incident Warden", "Checking recent events.", data={"event_count": len(events)})
     incident_signals = incident_warden(events)
     if not incident_signals:
-        log_agent("Incident Warden", "No alerts generated from recent events.", entry_type="agent_check")
-    else:
-        log_agent("Incident Warden", f"Raised {len(incident_signals)} alert signal(s).", level="high", entry_type="alert")
+        log_agent("Incident Warden", "No alerts generated from recent events.")
     primary_signals += incident_signals
 
-    log_agent("Weather Warden", "Checking recent events.", data={"event_count": len(events)}, entry_type="agent_check")
+    log_agent("Weather Warden", "Checking recent events.", data={"event_count": len(events)})
     weather_signals = weather_warden(events)
     if not weather_signals:
-        log_agent("Weather Warden", "No alerts generated from recent events.", entry_type="agent_check")
+        log_agent("Weather Warden", "No alerts generated from recent events.")
     primary_signals += weather_signals
 
     cascade_signals = []
-    log_agent("Mobility Warden", "Checking primary signals.", data={"primary_signal_count": len(primary_signals)}, entry_type="agent_check")
+    log_agent("Mobility Warden", "Checking primary signals.", data={"primary_signal_count": len(primary_signals)})
     mobility_signals = mobility_warden(primary_signals)
     if not mobility_signals:
-        log_agent("Mobility Warden", "No alerts generated from primary signals.", entry_type="agent_check")
+        log_agent("Mobility Warden", "No alerts generated from primary signals.")
     cascade_signals += mobility_signals
 
-    log_agent("Public Health Warden", "Checking primary signals.", data={"primary_signal_count": len(primary_signals)}, entry_type="agent_check")
+    log_agent("Public Health Warden", "Checking primary signals.", data={"primary_signal_count": len(primary_signals)})
     health_signals = public_health_warden(primary_signals)
     if not health_signals:
-        log_agent("Public Health Warden", "No alerts generated from primary signals.", entry_type="agent_check")
+        log_agent("Public Health Warden", "No alerts generated from primary signals.")
     cascade_signals += health_signals
 
     log_agent(
         "Emergency Pressure Warden",
         "Checking primary signals.",
         data={"primary_signal_count": len(primary_signals)},
-        entry_type="agent_check",
     )
     emergency_signals = emergency_pressure_warden(primary_signals)
     if not emergency_signals:
-        log_agent("Emergency Pressure Warden", "No alerts generated from primary signals.", entry_type="agent_check")
+        log_agent("Emergency Pressure Warden", "No alerts generated from primary signals.")
     cascade_signals += emergency_signals
 
-    log_agent("Trend Warden", "Checking recent events for patterns.", data={"event_count": len(events)}, entry_type="agent_check")
+    log_agent("Trend Warden", "Checking recent events for patterns.", data={"event_count": len(events)})
     trend_signals = trend_warden(events)
     if not trend_signals:
-        log_agent("Trend Warden", "No pattern alerts generated.", entry_type="agent_check")
+        log_agent("Trend Warden", "No pattern alerts generated.")
     all_signals = primary_signals + cascade_signals + trend_signals
 
     update_risk(all_signals)
 
-    log_agent("Critical Zone Warden", "Evaluating zone pressure.", data={"risk_locations": len(risk_map)}, entry_type="critical_zone")
+    log_agent("Critical Zone Warden", "Evaluating zone pressure.", data={"risk_locations": len(risk_map)})
     zone_signals, critical_zones = critical_zone_warden(risk_map)
     if not critical_zones:
-        log_agent("Critical Zone Warden", "No critical zones active.", entry_type="critical_zone")
+        log_agent("Critical Zone Warden", "No critical zones active.")
 
-    log_agent("Response Warden", "Reviewing critical zones for response actions.", data={"critical_zone_count": len(critical_zones)}, entry_type="response")
+    log_agent("Response Warden", "Reviewing critical zones for response actions.", data={"critical_zone_count": len(critical_zones)})
     response_signals = response_warden(critical_zones)
     if not response_signals:
-        log_agent("Response Warden", "No response actions required.", entry_type="response")
-    else:
-        log_agent("Response Warden", f"Issued {len(response_signals)} response action(s).", level="critical", entry_type="response")
+        log_agent("Response Warden", "No response actions required.")
 
     return all_signals + zone_signals + response_signals, critical_zones
 
@@ -618,7 +570,11 @@ async def websocket_endpoint(websocket: WebSocket):
         event = get_next_event()
 
         if event is None:
-            log_idle_cycle()
+            log_agent(
+                "Source Monitor",
+                "System waiting for next source refresh cycle.",
+                data={"seconds_until_next_refresh": seconds_until_next_source_refresh()},
+            )
             payload = {
                 "event": {
                     "type": "waiting",
@@ -659,7 +615,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 "Duplicate record skipped before persistence.",
                 level="warning",
                 data={"source": source, "source_event_id": event.get("source_event_id")},
-                entry_type="deduplication",
             )
             continue
 
@@ -668,7 +623,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
         alerts, critical_zones = run_agents(history)
         if not alerts:
-            log_agent("Incident Warden", "No active public alerts in this processing cycle.", entry_type="alert_state")
+            log_agent("Incident Warden", "No active public alerts in this processing cycle.")
 
         for alert in alerts:
             save_alert(alert)
