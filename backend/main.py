@@ -1,11 +1,10 @@
 """Town Warden FastAPI backend."""
-
+import hashlib
 import asyncio
 import json
-from collections import deque
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from agents.cascade import emergency_pressure_warden, mobility_warden, public_health_warden
@@ -49,9 +48,8 @@ risk_map = {}
 real_event_queue = []
 duplicate_count = 0
 last_source_fetch_time = None
-MAX_AGENT_LOGS = 150
-agent_log = deque(maxlen=MAX_AGENT_LOGS)
-
+agent_log = []
+last_wait_log_bucket = None
 source_health = {
     "Police.uk": {
         "status": "checking",
@@ -92,25 +90,6 @@ source_health = {
 }
 
 
-def log_agent(agent, message, level="info", data=None):
-    entry = {
-        "timestamp": datetime.now().isoformat(),
-        "agent": agent,
-        "message": message,
-        "level": level,
-    }
-    if data is not None:
-        entry["data"] = data
-    agent_log.append(entry)
-
-
-def recent_agent_log():
-    return list(agent_log)
-
-
-log_agent("Source Monitor", "Backend startup complete. Awaiting source refresh cycle.")
-
-
 def update_source_health(
     source_name,
     status,
@@ -148,7 +127,6 @@ def seconds_until_next_source_refresh():
 def fetch_real_events():
     """Fetch all connector events, deduplicate, then return only new events."""
     global duplicate_count
-    log_agent("Source Monitor", "Source refresh started.", data={"refresh_window_seconds": SOURCE_REFRESH_SECONDS})
 
     fetched_events = []
     fetched_events += police_uk.fetch_events(update_source_health)
@@ -183,12 +161,6 @@ def fetch_real_events():
         current["duplicates_skipped"] = current.get("duplicates_skipped", 0) + count
         current["last_checked"] = datetime.now().isoformat()
         source_health[source] = current
-        log_agent(
-            "Deduplication Guard",
-            f"Skipped duplicate records from {source}.",
-            level="warning",
-            data={"duplicates_skipped": count},
-        )
 
     for source_name in ["Police.uk", "Open-Meteo", "Street Manager"]:
         source_new = len([event for event in new_events if event.get("source") == source_name])
@@ -198,15 +170,6 @@ def fetch_real_events():
             source_health[source_name]["new_events_queued"] = source_new
             source_health[source_name]["message"] = f"{base_message} New queued: {source_new}."
 
-    log_agent(
-        "Source Monitor",
-        "Source refresh completed.",
-        data={
-            "records_fetched": len(fetched_events),
-            "new_events_accepted": len(new_events),
-            "duplicates_skipped_cycle": sum(duplicates_by_source.values()),
-        },
-    )
     return new_events
 
 
@@ -216,9 +179,52 @@ def force_source_refresh():
 
     last_source_fetch_time = datetime.now()
     real_event_queue = fetch_real_events()
-    log_agent("Source Monitor", "Manual source refresh completed.", data={"queued_events": len(real_event_queue)})
     return len(real_event_queue)
+def make_payload_fingerprint(prefix, payload):
+    """
+    Creates a stable fallback ID for webhook payloads.
 
+    If Street Manager does not give us a clean ID field,
+    this prevents duplicate webhook payloads being saved repeatedly.
+    """
+
+    raw = json.dumps(payload, sort_keys=True)
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    return f"{prefix}:{digest}"
+
+
+def normalise_street_manager_payload(kind, payload):
+    """
+    Converts a Street Manager webhook payload into a Town Warden event.
+
+    This is intentionally defensive because external webhook payloads can vary.
+    We will improve the field mapping once we see real Street Manager data.
+    """
+
+    possible_id = (
+        payload.get("id")
+        or payload.get("permitReferenceNumber")
+        or payload.get("activityId")
+        or payload.get("worksReference")
+        or payload.get("reference")
+    )
+
+    source_event_id = (
+        f"streetmanager:{kind}:{possible_id}"
+        if possible_id
+        else make_payload_fingerprint(f"streetmanager:{kind}", payload)
+    )
+
+    return {
+        "type": "infrastructure",
+        "location": "Town Centre",
+        "text": f"Street Manager {kind} notification received",
+        "timestamp": datetime.now().isoformat(),
+        "source": "Street Manager",
+        "source_event_id": source_event_id,
+        "real_data": True,
+    }
 
 def get_next_event():
     global real_event_queue
@@ -241,19 +247,12 @@ def get_next_event():
         return real_event_queue.pop(0)
 
     if ALLOW_SIMULATION:
-        log_agent("Source Monitor", "No real events available; simulation fallback emitted an event.", level="warning")
         return simulation.generate_event()
 
-    log_agent(
-        "Source Monitor",
-        "No new event available. Waiting for next source refresh.",
-        data={"seconds_until_next_refresh": seconds_until_next_source_refresh()},
-    )
     return None
 
 
 def update_risk(alerts):
-    before = dict(risk_map)
     for alert in alerts:
         location = alert["location"]
         impact = alert.get("score_impact", 5)
@@ -263,13 +262,6 @@ def update_risk(alerts):
         risk_map[location] *= 0.9
         if risk_map[location] < 1:
             del risk_map[location]
-
-    if alerts:
-        log_agent(
-            "Risk Engine",
-            "Risk map updated from active alerts.",
-            data={"alerts_processed": len(alerts), "locations": list(risk_map.keys()), "prior_locations": list(before.keys())},
-        )
 
 
 def calculate_health(alerts):
@@ -281,70 +273,23 @@ def calculate_health(alerts):
 
 def run_agents(events):
     primary_signals = []
-    log_agent("Infrastructure Warden", "Checking recent events.", data={"event_count": len(events)})
-    infra_signals = infrastructure_warden(events)
-    if not infra_signals:
-        log_agent("Infrastructure Warden", "No alerts generated from recent events.")
-    primary_signals += infra_signals
-
-    log_agent("Waste Warden", "Checking recent events.", data={"event_count": len(events)})
-    waste_signals = waste_warden(events)
-    if not waste_signals:
-        log_agent("Waste Warden", "No alerts generated from recent events.")
-    primary_signals += waste_signals
-
-    log_agent("Incident Warden", "Checking recent events.", data={"event_count": len(events)})
-    incident_signals = incident_warden(events)
-    if not incident_signals:
-        log_agent("Incident Warden", "No alerts generated from recent events.")
-    primary_signals += incident_signals
-
-    log_agent("Weather Warden", "Checking recent events.", data={"event_count": len(events)})
-    weather_signals = weather_warden(events)
-    if not weather_signals:
-        log_agent("Weather Warden", "No alerts generated from recent events.")
-    primary_signals += weather_signals
+    primary_signals += infrastructure_warden(events)
+    primary_signals += waste_warden(events)
+    primary_signals += incident_warden(events)
+    primary_signals += weather_warden(events)
 
     cascade_signals = []
-    log_agent("Mobility Warden", "Checking primary signals.", data={"primary_signal_count": len(primary_signals)})
-    mobility_signals = mobility_warden(primary_signals)
-    if not mobility_signals:
-        log_agent("Mobility Warden", "No alerts generated from primary signals.")
-    cascade_signals += mobility_signals
+    cascade_signals += mobility_warden(primary_signals)
+    cascade_signals += public_health_warden(primary_signals)
+    cascade_signals += emergency_pressure_warden(primary_signals)
 
-    log_agent("Public Health Warden", "Checking primary signals.", data={"primary_signal_count": len(primary_signals)})
-    health_signals = public_health_warden(primary_signals)
-    if not health_signals:
-        log_agent("Public Health Warden", "No alerts generated from primary signals.")
-    cascade_signals += health_signals
-
-    log_agent(
-        "Emergency Pressure Warden",
-        "Checking primary signals.",
-        data={"primary_signal_count": len(primary_signals)},
-    )
-    emergency_signals = emergency_pressure_warden(primary_signals)
-    if not emergency_signals:
-        log_agent("Emergency Pressure Warden", "No alerts generated from primary signals.")
-    cascade_signals += emergency_signals
-
-    log_agent("Trend Warden", "Checking recent events for patterns.", data={"event_count": len(events)})
     trend_signals = trend_warden(events)
-    if not trend_signals:
-        log_agent("Trend Warden", "No pattern alerts generated.")
     all_signals = primary_signals + cascade_signals + trend_signals
 
     update_risk(all_signals)
 
-    log_agent("Critical Zone Warden", "Evaluating zone pressure.", data={"risk_locations": len(risk_map)})
     zone_signals, critical_zones = critical_zone_warden(risk_map)
-    if not critical_zones:
-        log_agent("Critical Zone Warden", "No critical zones active.")
-
-    log_agent("Response Warden", "Reviewing critical zones for response actions.", data={"critical_zone_count": len(critical_zones)})
     response_signals = response_warden(critical_zones)
-    if not response_signals:
-        log_agent("Response Warden", "No response actions required.")
 
     return all_signals + zone_signals + response_signals, critical_zones
 
@@ -353,7 +298,6 @@ def runtime_status():
     return {
         "simulation_enabled": ALLOW_SIMULATION,
         "duplicates_skipped": duplicate_count,
-        "agent_log_count": len(agent_log),
         "source_refresh_seconds": SOURCE_REFRESH_SECONDS,
         "next_source_refresh_seconds": seconds_until_next_source_refresh(),
         "last_source_fetch_time": last_source_fetch_time.isoformat() if last_source_fetch_time else None,
@@ -373,20 +317,56 @@ def home():
         **runtime_status(),
     }
 
+def make_payload_fingerprint(prefix, payload):
+    """
+    Creates a stable fallback ID for webhook payloads.
 
+    If Street Manager does not give us a clean ID field,
+    this prevents duplicate webhook payloads being saved repeatedly.
+    """
+
+    raw = json.dumps(payload, sort_keys=True)
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    return f"{prefix}:{digest}"
+
+
+def normalise_street_manager_payload(kind, payload):
+    """
+    Converts a Street Manager webhook payload into a Town Warden event.
+
+    This is intentionally defensive because external webhook payloads can vary.
+    We will improve the field mapping once we see real Street Manager data.
+    """
+
+    possible_id = (
+        payload.get("id")
+        or payload.get("permitReferenceNumber")
+        or payload.get("activityId")
+        or payload.get("worksReference")
+        or payload.get("reference")
+    )
+
+    source_event_id = (
+        f"streetmanager:{kind}:{possible_id}"
+        if possible_id
+        else make_payload_fingerprint(f"streetmanager:{kind}", payload)
+    )
+
+    return {
+        "type": "infrastructure",
+        "location": "Town Centre",
+        "text": f"Street Manager {kind} notification received",
+        "timestamp": datetime.now().isoformat(),
+        "source": "Street Manager",
+        "source_event_id": source_event_id,
+        "real_data": True,
+    }
 @app.get("/source-health")
 def get_source_health():
     return {
         "sources": source_health,
         "source_health": source_health,
-        **runtime_status(),
-    }
-
-
-@app.get("/agent-log")
-def get_agent_log():
-    return {
-        "agent_log": recent_agent_log(),
         **runtime_status(),
     }
 
@@ -544,7 +524,6 @@ def dev_reset_database():
     history.clear()
     risk_map.clear()
     real_event_queue.clear()
-    agent_log.clear()
     duplicate_count = 0
     last_source_fetch_time = None
 
@@ -570,11 +549,6 @@ async def websocket_endpoint(websocket: WebSocket):
         event = get_next_event()
 
         if event is None:
-            log_agent(
-                "Source Monitor",
-                "System waiting for next source refresh cycle.",
-                data={"seconds_until_next_refresh": seconds_until_next_source_refresh()},
-            )
             payload = {
                 "event": {
                     "type": "waiting",
@@ -593,7 +567,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 "critical_zones": [],
                 "source_health": source_health,
                 "sources": source_health,
-                "agent_log": recent_agent_log(),
                 "waiting_for_real_events": True,
                 "system_mode": "real-data-only civic intelligence system",
                 **runtime_status(),
@@ -610,20 +583,12 @@ async def websocket_endpoint(websocket: WebSocket):
             current["duplicates_skipped"] = current.get("duplicates_skipped", 0) + 1
             current["last_checked"] = datetime.now().isoformat()
             source_health[source] = current
-            log_agent(
-                "Deduplication Guard",
-                "Duplicate record skipped before persistence.",
-                level="warning",
-                data={"source": source, "source_event_id": event.get("source_event_id")},
-            )
             continue
 
         history.append(event)
         history[:] = history[-30:]
 
         alerts, critical_zones = run_agents(history)
-        if not alerts:
-            log_agent("Incident Warden", "No active public alerts in this processing cycle.")
 
         for alert in alerts:
             save_alert(alert)
@@ -641,7 +606,6 @@ async def websocket_endpoint(websocket: WebSocket):
             "critical_zones": critical_zones,
             "source_health": source_health,
             "sources": source_health,
-            "agent_log": recent_agent_log(),
             "waiting_for_real_events": False,
             "system_mode": "real-data-only civic intelligence system",
             **runtime_status(),
