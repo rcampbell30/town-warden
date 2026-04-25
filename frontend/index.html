@@ -353,7 +353,7 @@ ws.onmessage = (message) => {
     document.getElementById("alerts").innerHTML = `<div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div>`;
   }
 
-  const riskEntries = Object.entries(riskMap).sort((a, b) => b[1] - a[1]);
+  var risk_Entries =Object.entries(riskMap).sort((a, b) => b[1] - a[1]);
   document.getElementById("risk").innerHTML = riskEntries.length ? riskEntries.map(([location, value]) => {
     const rounded = Math.round(value);
     const width = Math.min(rounded, 100);
@@ -366,7 +366,7 @@ ws.onmessage = (message) => {
     zoneElements(event.location).forEach(zone => zone.classList.add("active"));
   }
 
-  const riskEntries = Object.entries(riskMap).sort((a,b) => b[1]-a[1]);
+  var risk_Entries =Object.entries(riskMap).sort((a,b) => b[1]-a[1]);
   document.getElementById("risk").innerHTML = riskEntries.length ? riskEntries.map(([location, value]) => `<div class="risk-row ${riskClass(value)}"><strong>${location}</strong><div class="meta">Risk pressure: ${Math.round(value)}</div><div class="risk-bar-bg"><div class="risk-bar" style="width:${Math.min(Math.round(value),100)}%"></div></div></div>`).join("") : `<div class="meta">No accumulated zone risk yet.</div>`;
 
   clearZoneStates();
