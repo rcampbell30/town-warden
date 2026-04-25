@@ -47,6 +47,9 @@
     .alert.high, .risk-high { border-left-color: #ef4444; background: #1f1115; }
     .alert.medium, .risk-medium { border-left-color: #facc15; background: #1f1a10; }
     .alert.low, .risk-low { border-left-color: #60a5fa; }
+    .comms.info { border-left-color: #38bdf8; }
+    .comms.warning { border-left-color: #facc15; background: #1f1a10; }
+    .comms.error { border-left-color: #ef4444; background: #1f1115; }
     .source-real { color: #22c55e; font-weight: bold; }
     .source-fake { color: #facc15; font-weight: bold; }
     .response-action { color: #22c55e; font-weight: bold; }
@@ -154,8 +157,12 @@
   </div>
 
   <div class="grid">
-    <div class="panel"><h2>Live Civic Events</h2><div id="events"></div></div>
-    <div class="panel"><h2>Agent Alerts</h2><div id="alerts"></div></div>
+    <div class="panel"><h2>Live Civic Events</h2><div id="events"><div class="meta">No fresh unseen events yet. Deduplication may be holding repeated source records back.</div></div></div>
+    <div class="panel"><h2>Agent Alerts</h2><div id="alerts"><div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div></div></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel"><h2>Agent Comms Log</h2><div id="agentComms"><div class="meta">No internal agent messages yet.</div></div></div>
   </div>
 
   <div class="history-card">
@@ -375,6 +382,22 @@ function zoneElements(location) {
   ].filter(Boolean);
 }
 
+function renderAgentComms(agentLog) {
+  if (!Array.isArray(agentLog) || !agentLog.length) {
+    document.getElementById("agentComms").innerHTML = `<div class="meta">No internal agent messages yet.</div>`;
+    return;
+  }
+
+  const latest = [...agentLog].reverse().slice(0, 40);
+  document.getElementById("agentComms").innerHTML = latest.map(entry => `
+    <div class="event comms ${entry.level || "info"}">
+      <div class="agent">${entry.agent || "System"}</div>
+      <div>${entry.message || "No message."}</div>
+      <div class="meta">${entry.timestamp || ""}</div>
+    </div>
+  `).join("");
+}
+
 ws.onmessage = (message) => {
   const data = JSON.parse(message.data);
   updateRefreshCountdown(data);
@@ -389,6 +412,7 @@ ws.onmessage = (message) => {
   const riskMap = data.risk_map || {};
   const criticalZones = data.critical_zones || [];
   const isWaiting = data.waiting_for_real_events || event?.type === "waiting";
+  renderAgentComms(data.agent_log || []);
 
   if (data.source_health || data.sources) {
     renderSourceHealth({
@@ -420,6 +444,10 @@ ws.onmessage = (message) => {
     }
   }
 
+  if (!document.getElementById("events").innerHTML.trim()) {
+    document.getElementById("events").innerHTML = `<div class="meta">No fresh unseen events yet. Deduplication may be holding repeated source records back.</div>`;
+  }
+
   const banner = document.getElementById("criticalBanner");
   if (criticalZones.length > 0) {
     banner.style.display = "block";
@@ -428,7 +456,7 @@ ws.onmessage = (message) => {
     banner.style.display = "none";
   }
 
-  document.getElementById("alerts").innerHTML = alerts.map(alert => `
+  const alertHtml = alerts.map(alert => `
     <div class="alert ${alert.severity}">
       <div class="agent">${alert.agent}</div>
       <strong>${alert.location}</strong><br>
@@ -437,7 +465,13 @@ ws.onmessage = (message) => {
       ${alert.caused_by ? `<div class="meta">Caused by: ${alert.caused_by}</div>` : ""}
       ${alert.type === "response_signal" ? `<div class="meta response-action">Action: ${alert.action}</div>` : ""}
     </div>
-  `).join("") + document.getElementById("alerts").innerHTML;
+  `).join("");
+
+  if (alertHtml) {
+    document.getElementById("alerts").innerHTML = alertHtml + document.getElementById("alerts").innerHTML;
+  } else if (!document.getElementById("alerts").innerHTML.trim()) {
+    document.getElementById("alerts").innerHTML = `<div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div>`;
+  }
 
   const riskEntries = Object.entries(riskMap).sort((a, b) => b[1] - a[1]);
   document.getElementById("risk").innerHTML = riskEntries.length ? riskEntries.map(([location, value]) => {
