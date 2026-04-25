@@ -3,192 +3,144 @@
 <head>
   <title>Town Warden Live</title>
   <style>
-    body { margin: 0; background: radial-gradient(circle at top, #102033, #05070a 70%); color: #e5f0ff; font-family: Arial, sans-serif; padding: 28px; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 28px; gap: 18px; }
-    h1 { font-size: 44px; margin: 0; letter-spacing: -1px; }
-    h3 { color: #dbeafe; margin-bottom: 8px; }
-    .subtitle { color: #8fa9c9; margin-top: 6px; }
-    .status { padding: 10px 18px; border-radius: 999px; background: #052e1a; border: 1px solid #22c55e; color: #86efac; font-weight: bold; white-space: nowrap; }
+    body { margin: 0; background: radial-gradient(circle at top, #102033, #05070a 70%); color: #e5f0ff; font-family: Arial, sans-serif; padding: 24px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 18px; }
+    h1 { margin: 0; font-size: 40px; letter-spacing: -1px; }
+    h2 { margin-top: 0; border-bottom: 1px solid #243b56; padding-bottom: 10px; }
+    .subtitle, .meta { color: #9fb2cd; font-size: 13px; }
+    .status { padding: 8px 14px; border-radius: 999px; background: #052e1a; border: 1px solid #22c55e; color: #86efac; font-weight: 700; }
 
-    .health-card, .risk-card, .map, .history-card, .analytics-card, .waiting-card, .source-health-card, .dev-card {
-      background: linear-gradient(135deg, #10223a, #07111f);
-      border: 1px solid #25486f;
-      border-radius: 28px;
-      padding: 26px;
-      margin-bottom: 24px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.35);
-    }
+    .summary-strip { display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .summary-chip { background: #0f1d32; border: 1px solid #27476c; border-radius: 14px; padding: 12px; }
+    .summary-label { color: #9fb2cd; font-size: 12px; text-transform: uppercase; }
+    .summary-value { font-size: 21px; font-weight: 700; margin-top: 4px; }
 
+    .card, .panel, .waiting-card { background: linear-gradient(135deg, #10223a, #07111f); border: 1px solid #25486f; border-radius: 18px; box-shadow: 0 12px 30px rgba(0,0,0,.3); padding: 18px; margin-bottom: 16px; }
     .waiting-card { display: none; border-color: #facc15; color: #fde68a; }
-    .health { font-size: 64px; font-weight: bold; color: #67e8f9; }
-    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 24px; }
-    .analytics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 18px; }
-    .panel { background: rgba(15, 23, 42, 0.88); border: 1px solid #263b57; border-radius: 24px; padding: 22px; height: 520px; overflow-y: auto; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 
-    .panel h2, .risk-card h2, .map h2, .history-card h2, .analytics-card h2, .source-health-card h2, .dev-card h2 {
-      margin-top: 0;
-      color: #dbeafe;
-      border-bottom: 1px solid #243b56;
-      padding-bottom: 12px;
-    }
-
-    .event, .alert, .risk-row, .history-row, .mini-list, .metric-box {
-      background: #111827;
-      border-left: 5px solid #38bdf8;
-      padding: 14px;
-      border-radius: 12px;
-      margin-bottom: 12px;
-      animation: fadeIn .25s ease;
-    }
-
-    .metric-box { border-left: 0; border: 1px solid #334155; }
-    .metric-number { font-size: 36px; font-weight: bold; color: #67e8f9; }
-    .metric-label { color: #9ca3af; font-size: 13px; margin-top: 6px; }
-    .alert.high, .risk-high { border-left-color: #ef4444; background: #1f1115; }
-    .alert.medium, .risk-medium { border-left-color: #facc15; background: #1f1a10; }
+    .panel { min-height: 300px; max-height: 420px; overflow-y: auto; }
+    .event, .alert, .history-row, .risk-row, .log-row, .source-card, .metric-box, .mini-list { background: #111827; border-left: 5px solid #38bdf8; padding: 12px; border-radius: 10px; margin-bottom: 10px; }
+    .alert.high, .risk-high, .log-level-high, .log-level-critical { border-left-color: #ef4444; background: #231216; }
+    .alert.medium, .risk-medium, .log-level-warning { border-left-color: #f59e0b; background: #221b11; }
     .alert.low, .risk-low { border-left-color: #60a5fa; }
-    .source-real { color: #22c55e; font-weight: bold; }
-    .source-fake { color: #facc15; font-weight: bold; }
-    .response-action { color: #22c55e; font-weight: bold; }
-    .meta { color: #9ca3af; font-size: 13px; margin-top: 6px; }
-    .agent { font-weight: bold; color: #bfdbfe; }
+    .log-level-success { border-left-color: #22c55e; }
 
-    .zones { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
-    .zone { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; text-align: center; color: #cbd5e1; transition: all .25s ease; }
-    .zone.active { border-color: #38bdf8; box-shadow: 0 0 18px rgba(56,189,248,.35); color: white; }
-    .zone.pattern { border-color: #facc15; box-shadow: 0 0 24px rgba(250,204,21,.45); color: white; }
-    .zone.critical { border-color: #ef4444; background: #1f1115; box-shadow: 0 0 34px rgba(239,68,68,.85); color: white; animation: pulseCritical 1.2s infinite alternate; }
+    .agent-badge { display: inline-block; font-size: 11px; border-radius: 999px; padding: 2px 8px; margin-bottom: 6px; color: #fff; }
+    .agent-source-monitor { background: #2563eb; }
+    .agent-deduplication-guard { background: #d97706; }
+    .agent-incident-warden, .agent-response-warden { background: #b91c1c; }
+    .agent-weather-warden { background: #1d4ed8; }
+    .agent-risk-engine, .agent-trend-warden, .agent-critical-zone-warden { background: #7e22ce; }
+    .agent-default { background: #475569; }
 
-    .schematic-map { background: #06111d; border: 1px solid #263b57; border-radius: 24px; padding: 18px; margin-top: 16px; }
-    .coastline { display: grid; grid-template-rows: repeat(4, minmax(70px, auto)); gap: 12px; border-left: 6px solid #38bdf8; padding-left: 18px; }
-    .map-zone { background: #0f172a; border: 1px solid #334155; border-radius: 18px; padding: 18px; transition: all .25s ease; }
-    .map-zone.active { border-color: #38bdf8; box-shadow: 0 0 18px rgba(56,189,248,.35); }
-    .map-zone.pattern { border-color: #facc15; box-shadow: 0 0 24px rgba(250,204,21,.45); }
-    .map-zone.critical { border-color: #ef4444; background: #1f1115; box-shadow: 0 0 34px rgba(239,68,68,.85); }
-
-    .risk-bar-bg { background: #020617; border-radius: 999px; overflow: hidden; margin-top: 8px; height: 12px; }
-    .risk-bar { height: 12px; background: linear-gradient(90deg, #22c55e, #facc15, #ef4444); }
-    .critical-banner { display: none; background: #1f1115; border: 1px solid #ef4444; color: #fecaca; padding: 18px; border-radius: 18px; margin-bottom: 24px; box-shadow: 0 0 30px rgba(239,68,68,.35); font-weight: bold; }
-
-    button { background: #2563eb; color: white; border: none; padding: 10px 14px; border-radius: 12px; cursor: pointer; font-weight: bold; margin-bottom: 16px; }
-    button:hover { background: #1d4ed8; }
-    button.danger { background: #991b1b; }
-    button.danger:hover { background: #7f1d1d; }
+    .controls-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    button { background: #2563eb; color: #fff; border: none; padding: 8px 12px; border-radius: 10px; cursor: pointer; font-weight: 700; }
     button.secondary { background: #334155; }
-    button.secondary:hover { background: #475569; }
+    button.danger { background: #991b1b; }
 
-    .filter-row, .dev-actions { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
-    select { background: #0f172a; color: white; border: 1px solid #334155; border-radius: 12px; padding: 10px; }
-    .source-health-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-    .source-summary { background: #0f172a; border: 1px solid #334155; border-left: 5px solid #38bdf8; border-radius: 14px; padding: 14px; margin-bottom: 14px; }
-    .source-card { background: #111827; border: 1px solid #334155; border-left: 5px solid #64748b; padding: 14px; border-radius: 14px; }
+    .source-health-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
     .source-card.connected { border-left-color: #22c55e; }
     .source-card.disconnected { border-left-color: #ef4444; }
     .source-card.pending { border-left-color: #facc15; }
     .source-card.disabled { border-left-color: #64748b; opacity: .85; }
     .source-card.enabled, .source-card.checking { border-left-color: #38bdf8; }
-    .source-status { text-transform: uppercase; font-size: 12px; font-weight: bold; margin-top: 6px; }
-    .source-status.connected { color: #86efac; }
-    .source-status.disconnected { color: #fecaca; }
-    .source-status.pending { color: #fde68a; }
-    .source-status.disabled { color: #cbd5e1; }
-    .source-status.enabled, .source-status.checking { color: #93c5fd; }
 
-    @media (max-width: 900px) {
-      .topbar, .grid, .analytics-grid, .source-health-grid, .zones { grid-template-columns: 1fr; display: block; }
-      .status { display: inline-block; margin-top: 14px; }
-      .zone, .source-card, .metric-box { margin-bottom: 12px; }
+    .analytics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
+    .metric-number { font-size: 28px; font-weight: 700; }
+
+    .risk-bar-bg { background: #020617; border-radius: 999px; overflow: hidden; margin-top: 7px; height: 10px; }
+    .risk-bar { height: 10px; background: linear-gradient(90deg, #22c55e, #facc15, #ef4444); }
+
+    .schematic-map { background: #06111d; border: 1px solid #263b57; border-radius: 16px; padding: 12px; }
+    .coastline { display: grid; gap: 8px; border-left: 4px solid #38bdf8; padding-left: 10px; }
+    .map-zone { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 10px; }
+    .map-zone.active { border-color: #38bdf8; }
+    .map-zone.pattern { border-color: #facc15; }
+    .map-zone.critical { border-color: #ef4444; background: #1f1115; }
+
+    .source-real { color: #22c55e; font-weight: 700; }
+
+    @media (max-width: 1100px) {
+      .summary-strip { grid-template-columns: repeat(2, 1fr); }
+      .grid-2, .grid-3, .source-health-grid, .analytics-grid { grid-template-columns: 1fr; }
+      .topbar { align-items: flex-start; flex-direction: column; }
     }
-
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes pulseCritical { from { transform: scale(1); } to { transform: scale(1.03); } }
   </style>
 </head>
-
 <body>
   <div class="topbar">
     <div>
       <h1>Town Warden LIVE</h1>
       <div class="subtitle">Blackpool real-data-only civic nervous system prototype</div>
     </div>
-    <div class="status">REAL DATA MODE</div>
+    <div class="status" id="statusPill">REAL DATA MODE</div>
   </div>
 
-  <div class="critical-banner" id="criticalBanner">CRITICAL ZONE MODE ACTIVE</div>
-  <div class="waiting-card" id="waitingCard">Waiting for real data. Simulation fallback is disabled.</div>
-
-  <div class="health-card">
-    <div class="meta">Town Health Score</div>
-    <div class="health" id="health">--</div>
-    <div class="meta" id="history">Signals processed: --</div>
-    <div class="meta" id="mode">System mode: --</div>
-    <div class="meta" id="refreshCountdown">Next source refresh: --</div>
+  <div class="summary-strip">
+    <div class="summary-chip"><div class="summary-label">System mode</div><div class="summary-value" id="sumMode">--</div></div>
+    <div class="summary-chip"><div class="summary-label">Town health</div><div class="summary-value" id="sumHealth">--</div></div>
+    <div class="summary-chip"><div class="summary-label">Signals processed</div><div class="summary-value" id="sumSignals">--</div></div>
+    <div class="summary-chip"><div class="summary-label">Connected sources</div><div class="summary-value" id="sumSources">--</div></div>
+    <div class="summary-chip"><div class="summary-label">Duplicates skipped</div><div class="summary-value" id="sumDupes">--</div></div>
+    <div class="summary-chip"><div class="summary-label">Next refresh</div><div class="summary-value" id="sumRefresh">--</div></div>
+    <div class="summary-chip"><div class="summary-label">Critical zones</div><div class="summary-value" id="sumCritical">--</div></div>
   </div>
 
-  <div class="source-health-card">
-    <h2>Source Health</h2>
-    <button onclick="loadSourceHealth()">Refresh Sources</button>
-    <div id="sourceHealthPanel"><div class="meta">Source health auto-refreshes every 10 seconds.</div></div>
-  </div>
+  <div class="waiting-card" id="waitingCard">Waiting for next source refresh...</div>
 
-  <div class="dev-card">
-    <h2>Developer Controls</h2>
-    <div class="dev-actions">
-      <button onclick="devAction('/dev/force-refresh')">Force Source Refresh</button>
-      <button class="secondary" onclick="devAction('/dev/clear-live-feed')">Clear Live Feed</button>
-      <button class="secondary" onclick="devAction('/dev/clear-risk-map')">Clear Risk Map</button>
-      <button class="danger" onclick="devAction('/dev/reset-database', true)">Reset Local Database</button>
+  <div class="grid-2">
+    <div class="card">
+      <h2>Source Health</h2>
+      <button onclick="loadSourceHealth()">Refresh Sources</button>
+      <div id="sourceHealthPanel"><div class="meta">Source health auto-refreshes every 10 seconds.</div></div>
     </div>
-    <div id="devPanel"><div class="meta">Use these for local testing only.</div></div>
-  </div>
-
-  <div class="analytics-card">
-    <h2>Analytics Intelligence</h2>
-    <button onclick="loadAnalytics()">Refresh Analytics</button>
-    <div id="analyticsPanel"><div class="meta">Analytics auto-refresh every 15 seconds.</div></div>
-  </div>
-
-  <div class="risk-card">
-    <h2>Risk Intelligence</h2>
-    <div id="risk"></div>
-  </div>
-
-  <div class="grid">
-    <div class="panel"><h2>Live Civic Events</h2><div id="events"></div></div>
-    <div class="panel"><h2>Agent Alerts</h2><div id="alerts"></div></div>
-  </div>
-
-  <div class="history-card">
-    <h2>History Intelligence</h2>
-    <div class="filter-row">
-      <button onclick="loadHistory()">Refresh History</button>
-      <select id="typeFilter" onchange="loadHistory()">
-        <option value="">All Types</option>
-        <option value="incident">Incident</option>
-        <option value="infrastructure">Infrastructure</option>
-        <option value="waste">Waste</option>
-        <option value="transport">Transport</option>
-        <option value="weather">Weather</option>
-      </select>
-      <select id="sourceFilter" onchange="loadHistory()">
-        <option value="">All Sources</option>
-        <option value="Police.uk">Police.uk</option>
-        <option value="Open-Meteo">Open-Meteo</option>
-        <option value="Street Manager">Street Manager</option>
-        <option value="Simulation">Simulation</option>
-      </select>
+    <div class="card">
+      <h2>Risk Intelligence</h2>
+      <div id="risk"><div class="meta">No accumulated zone risk yet.</div></div>
     </div>
-    <div id="historyPanel"><div class="meta">History auto-refreshes every 10 seconds.</div></div>
   </div>
 
-  <div class="map">
+  <div class="grid-2">
+    <div class="panel"><h2>Live Civic Events</h2><div id="events"><div class="meta">No fresh unseen events. Deduplication is active and the system is waiting for the next source refresh.</div></div></div>
+    <div class="panel"><h2>Agent Alerts</h2><div id="alerts"><div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div></div></div>
+  </div>
+
+  <div class="panel">
+    <h2>Agent Comms Log</h2>
+    <div class="controls-row">
+      <button onclick="pauseComms()">Pause log updates</button>
+      <button class="secondary" onclick="resumeComms()">Resume log updates</button>
+      <button class="danger" onclick="clearVisibleComms()">Clear visible log</button>
+      <div class="meta" id="commsState">Live updates active.</div>
+    </div>
+    <div id="agentComms"><div class="meta">No internal agent messages yet.</div></div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>Analytics Intelligence</h2>
+      <button onclick="loadAnalytics()">Refresh Analytics</button>
+      <div id="analyticsPanel"><div class="meta">Analytics auto-refresh every 15 seconds.</div></div>
+    </div>
+    <div class="card">
+      <h2>History Intelligence</h2>
+      <div class="controls-row">
+        <button onclick="loadHistory()">Refresh History</button>
+        <select id="typeFilter" onchange="loadHistory()">
+          <option value="">All Types</option><option value="incident">Incident</option><option value="infrastructure">Infrastructure</option><option value="waste">Waste</option><option value="transport">Transport</option><option value="weather">Weather</option>
+        </select>
+        <select id="sourceFilter" onchange="loadHistory()">
+          <option value="">All Sources</option><option value="Police.uk">Police.uk</option><option value="Open-Meteo">Open-Meteo</option><option value="Street Manager">Street Manager</option><option value="Simulation">Simulation</option>
+        </select>
+      </div>
+      <div id="historyPanel"><div class="meta">History auto-refreshes every 10 seconds.</div></div>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>Blackpool Zones</h2>
-    <div class="zones" style="display:none;">
-      <div class="zone" id="zone-North-Shore">North Shore</div>
-      <div class="zone" id="zone-Town-Centre">Town Centre</div>
-      <div class="zone" id="zone-South-Shore">South Shore</div>
-      <div class="zone" id="zone-Blackpool-South">Blackpool South</div>
-    </div>
     <div class="schematic-map">
       <div class="coastline">
         <div class="map-zone" id="mapzone-North-Shore"><strong>North Shore</strong><div class="meta">Coastal north / promenade pressure</div></div>
@@ -199,158 +151,168 @@
     </div>
   </div>
 
+  <div class="card">
+    <h2>Developer Controls</h2>
+    <div class="controls-row">
+      <button onclick="devAction('/dev/force-refresh')">Force Source Refresh</button>
+      <button class="secondary" onclick="devAction('/dev/clear-live-feed')">Clear Live Feed</button>
+      <button class="secondary" onclick="devAction('/dev/clear-risk-map')">Clear Risk Map</button>
+      <button class="danger" onclick="devAction('/dev/reset-database', true)">Reset Local Database</button>
+    </div>
+    <div id="devPanel"><div class="meta">Use these for local testing only.</div></div>
+  </div>
+
 <script>
 const ws = new WebSocket("ws://127.0.0.1:8000/ws");
+let commsPaused = false;
+let commsCache = [];
 
-function riskClass(value) {
-  if (value >= 80) return "risk-high";
-  if (value >= 50) return "risk-medium";
-  return "risk-low";
+function riskClass(value){ if(value>=80) return "risk-high"; if(value>=50) return "risk-medium"; return "risk-low"; }
+function agentClass(agent){ return "agent-" + String(agent || "default").toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "agent-default"; }
+
+function updateSummary(data){
+  const sources = data.source_health || data.sources || {};
+  const connected = Object.values(sources).filter(s => ["connected","enabled","checking"].includes((s.status||"").toLowerCase())).length;
+  document.getElementById("sumMode").innerText = data.system_mode ? "Real Data" : "--";
+  document.getElementById("sumHealth").innerText = (data.health ?? "--") + (data.health !== undefined ? " /100" : "");
+  document.getElementById("sumSignals").innerText = data.history_count ?? "--";
+  document.getElementById("sumSources").innerText = `${connected}/${Object.keys(sources).length || 0}`;
+  document.getElementById("sumDupes").innerText = data.duplicates_skipped ?? 0;
+  document.getElementById("sumRefresh").innerText = data.next_source_refresh_seconds !== undefined ? `${data.next_source_refresh_seconds}s` : "--";
+  document.getElementById("sumCritical").innerText = (data.critical_zones || []).length;
 }
 
-function updateRefreshCountdown(data) {
-  const seconds = data.next_source_refresh_seconds;
-  const refreshEvery = data.source_refresh_seconds;
-  const queued = data.queued_events ?? 0;
-  document.getElementById("refreshCountdown").innerText =
-    seconds === undefined
-      ? "Next source refresh: --"
-      : `Next source refresh: ${seconds}s · refresh cycle: ${refreshEvery}s · queued events: ${queued}`;
+function collapseIdle(logs){
+  const out = [];
+  for(const entry of (logs || [])){
+    const idleLike = entry.type === "idle" || /waiting for next source refresh|No new event available/i.test(entry.message || "");
+    const prev = out[out.length - 1];
+    if(idleLike && prev && prev.agent === entry.agent && (prev.type === "idle" || prev._idleCollapsed)){
+      prev._repeat = (prev._repeat || 1) + 1;
+      prev._idleCollapsed = true;
+      prev.message = `${entry.agent} idle - repeated ${prev._repeat} cycles`;
+      prev.timestamp = entry.timestamp;
+    } else {
+      out.push({...entry});
+    }
+  }
+  return out;
 }
 
-function renderSourceHealth(payload) {
+function renderAgentComms(agentLog){
+  if(commsPaused) return;
+  const collapsed = collapseIdle(agentLog);
+  commsCache = collapsed.slice(-50);
+  const latest = [...commsCache].reverse();
+  if(!latest.length){ document.getElementById("agentComms").innerHTML = `<div class="meta">No internal agent messages yet.</div>`; return; }
+  document.getElementById("agentComms").innerHTML = latest.map(entry => `
+    <div class="log-row log-level-${entry.level || "info"}">
+      <div class="agent-badge ${agentClass(entry.agent)}">${entry.agent || "System"}</div>
+      <div>${entry.message || "No message."}</div>
+      <div class="meta">${entry.timestamp || ""}</div>
+    </div>`).join("");
+}
+function pauseComms(){ commsPaused = true; document.getElementById("commsState").innerText = "Log updates paused."; }
+function resumeComms(){ commsPaused = false; document.getElementById("commsState").innerText = "Live updates active."; renderAgentComms(commsCache); }
+function clearVisibleComms(){ commsCache = []; document.getElementById("agentComms").innerHTML = `<div class="meta">Visible log cleared. Backend log still active.</div>`; }
+
+function renderSourceHealth(payload){
   const sources = payload.sources || payload.source_health || {};
   const entries = Object.entries(sources);
-  const globalDuplicates = payload.duplicates_skipped || 0;
-  const nextRefresh = payload.next_source_refresh_seconds ?? "--";
-
-  updateRefreshCountdown(payload);
-
-  if (!entries.length) {
-    document.getElementById("sourceHealthPanel").innerHTML = `<div class="meta">No source health data yet.</div>`;
-    return;
-  }
-
-  document.getElementById("sourceHealthPanel").innerHTML = `
-    <div class="source-summary">
-      <strong>Ingestion Guard</strong>
-      <div class="meta">Total duplicates skipped: ${globalDuplicates}</div>
-      <div class="meta">Next source refresh: ${nextRefresh}s</div>
-      <div class="meta">Same source records will not be saved or processed twice.</div>
-    </div>
-    <div class="source-health-grid">
-      ${entries.map(([name, info]) => {
-        const status = info.status || "unknown";
-        const detail = info.message || info.detail || "No detail available.";
-        const lastChecked = info.last_checked ? `Last checked: ${info.last_checked}` : "Not checked yet";
-        const recordsReturned = info.records_returned ?? 0;
-        const eventsEmitted = info.events_emitted ?? info.event_count ?? 0;
-        const newQueued = info.new_events_queued ?? 0;
-        const duplicatesSkipped = info.duplicates_skipped ?? 0;
-        return `
-          <div class="source-card ${status}">
-            <strong>${info.label || name}</strong>
-            <div class="source-status ${status}">${status.replaceAll("_", " ")}</div>
-            <div class="meta">${detail}</div>
-            <div class="meta">Records returned: ${recordsReturned}</div>
-            <div class="meta">Candidate events: ${eventsEmitted}</div>
-            <div class="meta">New queued: ${newQueued}</div>
-            <div class="meta">Duplicates skipped: ${duplicatesSkipped}</div>
-            <div class="meta">${lastChecked}</div>
-          </div>
-        `;
-      }).join("")}
-    </div>
-  `;
+  if(!entries.length){ document.getElementById("sourceHealthPanel").innerHTML = `<div class="meta">No source health data yet.</div>`; return; }
+  document.getElementById("sourceHealthPanel").innerHTML = `<div class="source-health-grid">${entries.map(([name, info]) => `
+    <div class="source-card ${(info.status || "unknown").toLowerCase()}">
+      <strong>${name}</strong>
+      <div class="meta">${info.message || "No detail available."}</div>
+      <div class="meta">Status: ${(info.status || "unknown").toUpperCase()}</div>
+      <div class="meta">Records returned: ${info.records_returned ?? 0}</div>
+      <div class="meta">New queued: ${info.new_events_queued ?? 0}</div>
+      <div class="meta">Duplicates skipped: ${info.duplicates_skipped ?? 0}</div>
+    </div>`).join("")}</div>`;
 }
 
-async function loadSourceHealth() {
-  try {
-    const res = await fetch("http://127.0.0.1:8000/source-health");
-    const data = await res.json();
-    renderSourceHealth(data);
-  } catch (error) {
-    document.getElementById("sourceHealthPanel").innerHTML = `<div class="meta">Source health unavailable. Check backend.</div>`;
-  }
+async function loadSourceHealth(){
+  try{ const data = await (await fetch("http://127.0.0.1:8000/source-health")).json(); renderSourceHealth(data); updateSummary(data); }
+  catch{ document.getElementById("sourceHealthPanel").innerHTML = `<div class="meta">Source health unavailable. Check backend.</div>`; }
 }
 
-async function devAction(path, confirmFirst = false) {
-  if (confirmFirst && !confirm("This is a local development reset. Continue?")) return;
-
-  try {
-    const res = await fetch("http://127.0.0.1:8000" + path, { method: "POST" });
-    const data = await res.json();
-    document.getElementById("devPanel").innerHTML = `<div class="meta">${data.message}</div>`;
-    loadSourceHealth();
-    loadAnalytics();
-    loadHistory();
-  } catch (error) {
-    document.getElementById("devPanel").innerHTML = `<div class="meta">Developer action failed. Check backend.</div>`;
-  }
-}
-
-async function loadAnalytics() {
-  try {
-    const res = await fetch("http://127.0.0.1:8000/analytics");
-    const data = await res.json();
-    const real = data.real_vs_simulated?.real || 0;
-    const simulated = data.real_vs_simulated?.simulated || 0;
-    const duplicatesSkipped = data.duplicates_skipped || 0;
-
+async function loadAnalytics(){
+  try{
+    const data = await (await fetch("http://127.0.0.1:8000/analytics")).json();
+    if((data.total_events || 0) === 0){ document.getElementById("analyticsPanel").innerHTML = `<div class="meta">Analytics will populate once events are saved.</div>`; return; }
     const typeRows = (data.events_by_type || []).map(item => `<div class="mini-list"><strong>${item.type.toUpperCase()}</strong><div class="meta">${item.count} saved events</div></div>`).join("");
     const locationRows = (data.top_locations || []).map(item => `<div class="mini-list"><strong>${item.location}</strong><div class="meta">${item.count} saved events</div></div>`).join("");
-    const agentRows = (data.top_agents || []).map(item => `<div class="mini-list"><strong>${item.agent}</strong><div class="meta">${item.count} alerts generated</div></div>`).join("");
-
     document.getElementById("analyticsPanel").innerHTML = `
       <div class="analytics-grid">
-        <div class="metric-box"><div class="metric-number">${data.total_events}</div><div class="metric-label">Total saved events</div></div>
-        <div class="metric-box"><div class="metric-number">${data.total_alerts}</div><div class="metric-label">Total saved alerts</div></div>
-        <div class="metric-box"><div class="metric-number">${real}/${simulated}</div><div class="metric-label">Real vs simulated events</div></div>
-        <div class="metric-box"><div class="metric-number">${duplicatesSkipped}</div><div class="metric-label">Duplicates skipped</div></div>
+        <div class="metric-box"><div class="metric-number">${data.total_events}</div><div class="meta">Total events</div></div>
+        <div class="metric-box"><div class="metric-number">${data.total_alerts}</div><div class="meta">Total alerts</div></div>
+        <div class="metric-box"><div class="metric-number">${data.duplicates_skipped || 0}</div><div class="meta">Duplicates skipped</div></div>
+        <div class="metric-box"><div class="metric-number">${(data.real_vs_simulated?.real || 0)}</div><div class="meta">Real-data events</div></div>
       </div>
-      <div class="grid">
-        <div><h3>Events by Type</h3>${typeRows || `<div class="meta">No type data yet.</div>`}</div>
-        <div><h3>Top Locations</h3>${locationRows || `<div class="meta">No location data yet.</div>`}</div>
-      </div>
-      <h3>Most Active Agents</h3>${agentRows || `<div class="meta">No agent data yet.</div>`}
-    `;
-  } catch (error) {
-    document.getElementById("analyticsPanel").innerHTML = `<div class="meta">Analytics unavailable. Check backend.</div>`;
-  }
+      <h3>Events by Type</h3>${typeRows || `<div class="meta">No type data yet.</div>`}
+      <h3>Top Locations</h3>${locationRows || `<div class="meta">No location data yet.</div>`}`;
+  } catch { document.getElementById("analyticsPanel").innerHTML = `<div class="meta">Analytics unavailable. Check backend.</div>`; }
 }
 
-async function loadHistory() {
-  try {
+async function loadHistory(){
+  try{
     const typeFilter = document.getElementById("typeFilter").value;
     const sourceFilter = document.getElementById("sourceFilter").value;
-    const res = await fetch("http://127.0.0.1:8000/history");
-    let rows = await res.json();
-
-    if (typeFilter) rows = rows.filter(row => row.type === typeFilter);
-    if (sourceFilter) rows = rows.filter(row => row.source === sourceFilter);
-
-    if (!rows.length) {
-      document.getElementById("historyPanel").innerHTML = `<div class="meta">No saved history matches the current filters.</div>`;
-      return;
-    }
-
-    document.getElementById("historyPanel").innerHTML = rows.map(row => {
-      const sourceClass = row.real_data ? "source-real" : "source-fake";
-      const sourceText = row.real_data ? "REAL DATA" : "SIMULATION";
-      return `
-        <div class="history-row">
-          <strong>${row.type.toUpperCase()}</strong> — ${row.location}<br>
-          ${row.text}
-          <div class="meta">Source: <span class="${sourceClass}">${sourceText}</span> (${row.source})</div>
-          ${row.source_event_id ? `<div class="meta">Source event ID: ${row.source_event_id}</div>` : ""}
-          <div class="meta">${row.timestamp}</div>
-        </div>
-      `;
-    }).join("");
-  } catch (error) {
-    document.getElementById("historyPanel").innerHTML = `<div class="meta">History unavailable. Check backend.</div>`;
-  }
+    let rows = await (await fetch("http://127.0.0.1:8000/history")).json();
+    if(typeFilter) rows = rows.filter(r => r.type === typeFilter);
+    if(sourceFilter) rows = rows.filter(r => r.source === sourceFilter);
+    if(!rows.length){ document.getElementById("historyPanel").innerHTML = `<div class="meta">No saved history matches the current filters.</div>`; return; }
+    document.getElementById("historyPanel").innerHTML = rows.map(r => `<div class="history-row"><strong>${r.type.toUpperCase()}</strong> — ${r.location}<br>${r.text}<div class="meta">${r.timestamp}</div></div>`).join("");
+  } catch { document.getElementById("historyPanel").innerHTML = `<div class="meta">History unavailable. Check backend.</div>`; }
 }
+
+async function devAction(path, confirmFirst=false){
+  if(confirmFirst && !confirm("This is a local development reset. Continue?")) return;
+  try{ const data = await (await fetch("http://127.0.0.1:8000" + path, { method: "POST" })).json(); document.getElementById("devPanel").innerHTML = `<div class="meta">${data.message}</div>`; loadSourceHealth(); loadAnalytics(); loadHistory(); }
+  catch{ document.getElementById("devPanel").innerHTML = `<div class="meta">Developer action failed. Check backend.</div>`; }
+}
+
+function clearZoneStates(){ document.querySelectorAll(".map-zone").forEach(zone => zone.classList.remove("active", "pattern", "critical")); }
+function zoneElements(location){ const suffix = String(location || "").replaceAll(" ", "-"); return [document.getElementById("mapzone-" + suffix)].filter(Boolean); }
+
+ws.onmessage = (message) => {
+  const data = JSON.parse(message.data);
+  const event = data.event;
+  const alerts = data.alerts || [];
+  const riskMap = data.risk_map || {};
+  const criticalZones = data.critical_zones || [];
+  const isWaiting = data.waiting_for_real_events || event?.type === "waiting";
+
+  updateSummary(data);
+  renderSourceHealth({ sources: data.source_health || data.sources });
+  renderAgentComms(data.agent_log || []);
+
+  const waitingCard = document.getElementById("waitingCard");
+  waitingCard.style.display = isWaiting ? "block" : "none";
+  waitingCard.innerText = event?.text || "Waiting for next source refresh...";
+
+  if(event && !isWaiting){
+    const existing = document.getElementById("events").innerHTML;
+    document.getElementById("events").innerHTML = `<div class="event"><strong>${event.type.toUpperCase()}</strong> — ${event.location}<br>${event.text}<div class="meta">${event.timestamp || ""}</div></div>` + existing;
+  }
+  if(!document.getElementById("events").innerText.trim()){
+    document.getElementById("events").innerHTML = `<div class="meta">No fresh unseen events. Deduplication is active and the system is waiting for the next source refresh.</div>`;
+  }
+
+  if(alerts.length){
+    document.getElementById("alerts").innerHTML = alerts.map(alert => `<div class="alert ${alert.severity}"><strong>${alert.agent}</strong><br>${alert.location} — ${alert.message}</div>`).join("") + document.getElementById("alerts").innerHTML;
+  } else if(!document.getElementById("alerts").innerText.trim()) {
+    document.getElementById("alerts").innerHTML = `<div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div>`;
+  }
+
+  const riskEntries = Object.entries(riskMap).sort((a,b) => b[1]-a[1]);
+  document.getElementById("risk").innerHTML = riskEntries.length ? riskEntries.map(([location, value]) => `<div class="risk-row ${riskClass(value)}"><strong>${location}</strong><div class="meta">Risk pressure: ${Math.round(value)}</div><div class="risk-bar-bg"><div class="risk-bar" style="width:${Math.min(Math.round(value),100)}%"></div></div></div>`).join("") : `<div class="meta">No accumulated zone risk yet.</div>`;
+
+  clearZoneStates();
+  if(event && !isWaiting) zoneElements(event.location).forEach(z => z.classList.add("active"));
+  alerts.forEach(a => { if(a.agent === "Trend Warden" || a.agent === "Critical Zone Warden") zoneElements(a.location).forEach(z => z.classList.add("pattern")); });
+  criticalZones.forEach(location => zoneElements(location).forEach(z => z.classList.add("critical")));
+};
 
 setInterval(loadHistory, 10000);
 setInterval(loadAnalytics, 15000);
@@ -358,110 +320,6 @@ setInterval(loadSourceHealth, 10000);
 loadHistory();
 loadAnalytics();
 loadSourceHealth();
-
-function clearZoneStates() {
-  document.querySelectorAll(".zone, .map-zone").forEach(zone => {
-    zone.classList.remove("active");
-    zone.classList.remove("pattern");
-    zone.classList.remove("critical");
-  });
-}
-
-function zoneElements(location) {
-  const suffix = location.replaceAll(" ", "-");
-  return [
-    document.getElementById("zone-" + suffix),
-    document.getElementById("mapzone-" + suffix)
-  ].filter(Boolean);
-}
-
-ws.onmessage = (message) => {
-  const data = JSON.parse(message.data);
-  updateRefreshCountdown(data);
-
-  const waitingCard = document.getElementById("waitingCard");
-  document.getElementById("health").innerText = data.health + " / 100";
-  document.getElementById("history").innerText = "Signals processed: " + data.history_count;
-  document.getElementById("mode").innerText = "System mode: " + data.system_mode;
-
-  const event = data.event;
-  const alerts = data.alerts || [];
-  const riskMap = data.risk_map || {};
-  const criticalZones = data.critical_zones || [];
-  const isWaiting = data.waiting_for_real_events || event?.type === "waiting";
-
-  if (data.source_health || data.sources) {
-    renderSourceHealth({
-      sources: data.source_health || data.sources,
-      duplicates_skipped: data.duplicates_skipped || 0,
-      next_source_refresh_seconds: data.next_source_refresh_seconds,
-      source_refresh_seconds: data.source_refresh_seconds,
-      queued_events: data.queued_events
-    });
-  }
-
-  if (isWaiting) {
-    waitingCard.style.display = "block";
-    waitingCard.innerText = event?.text || "No new real events available. Waiting for public data source updates.";
-  } else {
-    waitingCard.style.display = "none";
-    if (event) {
-      const sourceClass = event.real_data ? "source-real" : "source-fake";
-      const sourceText = event.real_data ? "REAL DATA" : "SIMULATION FALLBACK";
-      document.getElementById("events").innerHTML = `
-        <div class="event">
-          <strong>${event.type.toUpperCase()}</strong> — ${event.location}<br>
-          ${event.text}
-          <div class="meta">Source: <span class="${sourceClass}">${sourceText}</span> (${event.source})</div>
-          ${event.source_event_id ? `<div class="meta">Source event ID: ${event.source_event_id}</div>` : ""}
-          ${event.approx_street ? `<div class="meta">Approx street: ${event.approx_street}</div>` : ""}
-        </div>
-      ` + document.getElementById("events").innerHTML;
-    }
-  }
-
-  const banner = document.getElementById("criticalBanner");
-  if (criticalZones.length > 0) {
-    banner.style.display = "block";
-    banner.innerText = "CRITICAL ZONE MODE ACTIVE: " + criticalZones.join(", ");
-  } else {
-    banner.style.display = "none";
-  }
-
-  document.getElementById("alerts").innerHTML = alerts.map(alert => `
-    <div class="alert ${alert.severity}">
-      <div class="agent">${alert.agent}</div>
-      <strong>${alert.location}</strong><br>
-      ${alert.message}
-      <div class="meta">Severity: ${alert.severity.toUpperCase()}</div>
-      ${alert.caused_by ? `<div class="meta">Caused by: ${alert.caused_by}</div>` : ""}
-      ${alert.type === "response_signal" ? `<div class="meta response-action">Action: ${alert.action}</div>` : ""}
-    </div>
-  `).join("") + document.getElementById("alerts").innerHTML;
-
-  const riskEntries = Object.entries(riskMap).sort((a, b) => b[1] - a[1]);
-  document.getElementById("risk").innerHTML = riskEntries.length ? riskEntries.map(([location, value]) => {
-    const rounded = Math.round(value);
-    const width = Math.min(rounded, 100);
-    return `<div class="risk-row ${riskClass(value)}"><strong>${location}</strong><div class="meta">Risk pressure: ${rounded}</div><div class="risk-bar-bg"><div class="risk-bar" style="width:${width}%"></div></div></div>`;
-  }).join("") : `<div class="meta">No accumulated zone risk yet.</div>`;
-
-  clearZoneStates();
-
-  if (event && !isWaiting) {
-    zoneElements(event.location).forEach(zone => zone.classList.add("active"));
-  }
-
-  alerts.forEach(alert => {
-    if (alert.agent === "Trend Warden" || alert.agent === "Critical Zone Warden") {
-      zoneElements(alert.location).forEach(zone => zone.classList.add("pattern"));
-    }
-  });
-
-  criticalZones.forEach(location => {
-    zoneElements(location).forEach(zone => zone.classList.add("critical"));
-  });
-};
 </script>
 </body>
 </html>
