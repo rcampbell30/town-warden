@@ -3,90 +3,361 @@
 <head>
   <title>Town Warden Live</title>
   <style>
-    body { margin: 0; background: radial-gradient(circle at top, #102033, #05070a 70%); color: #e5f0ff; font-family: Arial, sans-serif; padding: 24px; }
-    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 18px; }
-    h1 { margin: 0; font-size: 40px; letter-spacing: -1px; }
-    h2 { margin-top: 0; border-bottom: 1px solid #243b56; padding-bottom: 10px; }
-    .subtitle, .meta { color: #9fb2cd; font-size: 13px; }
-    .status { padding: 8px 14px; border-radius: 999px; background: #052e1a; border: 1px solid #22c55e; color: #86efac; font-weight: 700; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top, #102033, #05070a 70%);
+      color: #e5f0ff;
+      font-family: Arial, sans-serif;
+      padding: 24px;
+    }
 
-    .summary-strip { display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); gap: 10px; margin-bottom: 18px; }
-    .summary-chip { background: #0f1d32; border: 1px solid #27476c; border-radius: 14px; padding: 12px; }
-    .summary-label { color: #9fb2cd; font-size: 12px; text-transform: uppercase; }
-    .summary-value { font-size: 21px; font-weight: 700; margin-top: 4px; }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
 
-    .card, .panel, .waiting-card { background: linear-gradient(135deg, #10223a, #07111f); border: 1px solid #25486f; border-radius: 18px; box-shadow: 0 12px 30px rgba(0,0,0,.3); padding: 18px; margin-bottom: 16px; }
-    .waiting-card { display: none; border-color: #facc15; color: #fde68a; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    h1 {
+      margin: 0;
+      font-size: 40px;
+      letter-spacing: -1px;
+    }
 
-    .panel { min-height: 300px; max-height: 420px; overflow-y: auto; }
-    .event, .alert, .history-row, .risk-row, .log-row, .source-card, .metric-box, .mini-list { background: #111827; border-left: 5px solid #38bdf8; padding: 12px; border-radius: 10px; margin-bottom: 10px; }
-    .alert.high, .risk-high, .log-level-high, .log-level-critical { border-left-color: #ef4444; background: #231216; }
-    .alert.medium, .risk-medium, .log-level-warning { border-left-color: #f59e0b; background: #221b11; }
-    .alert.low, .risk-low { border-left-color: #60a5fa; }
-    .comms.info { border-left-color: #38bdf8; }
-    .comms.warning { border-left-color: #facc15; background: #1f1a10; }
-    .comms.error { border-left-color: #ef4444; background: #1f1115; }
-    .source-real { color: #22c55e; font-weight: bold; }
-    .source-fake { color: #facc15; font-weight: bold; }
-    .response-action { color: #22c55e; font-weight: bold; }
-    .meta { color: #9ca3af; font-size: 13px; margin-top: 6px; }
-    .agent { font-weight: bold; color: #bfdbfe; }
+    h2 {
+      margin-top: 0;
+      border-bottom: 1px solid #243b56;
+      padding-bottom: 10px;
+      color: #dbeafe;
+    }
 
-    .zones { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
-    .zone { background: #0f172a; border: 1px solid #334155; border-radius: 16px; padding: 18px; text-align: center; color: #cbd5e1; transition: all .25s ease; }
-    .zone.active { border-color: #38bdf8; box-shadow: 0 0 18px rgba(56,189,248,.35); color: white; }
-    .zone.pattern { border-color: #facc15; box-shadow: 0 0 24px rgba(250,204,21,.45); color: white; }
-    .zone.critical { border-color: #ef4444; background: #1f1115; box-shadow: 0 0 34px rgba(239,68,68,.85); color: white; animation: pulseCritical 1.2s infinite alternate; }
+    h3 {
+      color: #dbeafe;
+      margin-bottom: 8px;
+    }
 
-    .schematic-map { background: #06111d; border: 1px solid #263b57; border-radius: 24px; padding: 18px; margin-top: 16px; }
-    .coastline { display: grid; grid-template-rows: repeat(4, minmax(70px, auto)); gap: 12px; border-left: 6px solid #38bdf8; padding-left: 18px; }
-    .map-zone { background: #0f172a; border: 1px solid #334155; border-radius: 18px; padding: 18px; transition: all .25s ease; }
-    .map-zone.active { border-color: #38bdf8; box-shadow: 0 0 18px rgba(56,189,248,.35); }
-    .map-zone.pattern { border-color: #facc15; box-shadow: 0 0 24px rgba(250,204,21,.45); }
-    .map-zone.critical { border-color: #ef4444; background: #1f1115; box-shadow: 0 0 34px rgba(239,68,68,.85); }
+    .subtitle,
+    .meta {
+      color: #9fb2cd;
+      font-size: 13px;
+    }
 
-    .risk-bar-bg { background: #020617; border-radius: 999px; overflow: hidden; margin-top: 8px; height: 12px; }
-    .risk-bar { height: 12px; background: linear-gradient(90deg, #22c55e, #facc15, #ef4444); }
-    .critical-banner { display: none; background: #1f1115; border: 1px solid #ef4444; color: #fecaca; padding: 18px; border-radius: 18px; margin-bottom: 24px; box-shadow: 0 0 30px rgba(239,68,68,.35); font-weight: bold; }
+    .status {
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #052e1a;
+      border: 1px solid #22c55e;
+      color: #86efac;
+      font-weight: 700;
+      white-space: nowrap;
+    }
 
-    button { background: #2563eb; color: white; border: none; padding: 10px 14px; border-radius: 12px; cursor: pointer; font-weight: bold; margin-bottom: 16px; }
-    button:hover { background: #1d4ed8; }
-    button.danger { background: #991b1b; }
-    button.danger:hover { background: #7f1d1d; }
-    button.secondary { background: #334155; }
-    button.danger { background: #991b1b; }
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 18px;
+    }
 
-    .source-health-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
-    .source-card.connected { border-left-color: #22c55e; }
-    .source-card.disconnected { border-left-color: #ef4444; }
-    .source-card.pending { border-left-color: #facc15; }
-    .source-card.disabled { border-left-color: #64748b; opacity: .85; }
-    .source-card.enabled, .source-card.checking { border-left-color: #38bdf8; }
+    .summary-chip {
+      background: #0f1d32;
+      border: 1px solid #27476c;
+      border-radius: 14px;
+      padding: 12px;
+    }
 
-    .analytics-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
-    .metric-number { font-size: 28px; font-weight: 700; }
+    .summary-label {
+      color: #9fb2cd;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
 
-    .risk-bar-bg { background: #020617; border-radius: 999px; overflow: hidden; margin-top: 7px; height: 10px; }
-    .risk-bar { height: 10px; background: linear-gradient(90deg, #22c55e, #facc15, #ef4444); }
+    .summary-value {
+      font-size: 21px;
+      font-weight: 700;
+      margin-top: 4px;
+    }
 
-    .schematic-map { background: #06111d; border: 1px solid #263b57; border-radius: 16px; padding: 12px; }
-    .coastline { display: grid; gap: 8px; border-left: 4px solid #38bdf8; padding-left: 10px; }
-    .map-zone { background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 10px; }
-    .map-zone.active { border-color: #38bdf8; }
-    .map-zone.pattern { border-color: #facc15; }
-    .map-zone.critical { border-color: #ef4444; background: #1f1115; }
+    .card,
+    .panel,
+    .waiting-card,
+    .critical-banner {
+      background: linear-gradient(135deg, #10223a, #07111f);
+      border: 1px solid #25486f;
+      border-radius: 18px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.3);
+      padding: 18px;
+      margin-bottom: 16px;
+    }
 
-    .source-real { color: #22c55e; font-weight: 700; }
+    .waiting-card {
+      display: none;
+      border-color: #facc15;
+      color: #fde68a;
+    }
+
+    .critical-banner {
+      display: none;
+      border-color: #ef4444;
+      color: #fecaca;
+      background: #1f1115;
+      font-weight: bold;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .panel {
+      min-height: 300px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    .event,
+    .alert,
+    .history-row,
+    .risk-row,
+    .log-row,
+    .source-card,
+    .metric-box,
+    .mini-list {
+      background: #111827;
+      border-left: 5px solid #38bdf8;
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+      animation: fadeIn .2s ease;
+    }
+
+    .alert.high,
+    .risk-high,
+    .log-row.danger,
+    .log-row.error {
+      border-left-color: #ef4444;
+      background: #231216;
+    }
+
+    .alert.medium,
+    .risk-medium,
+    .log-row.warning {
+      border-left-color: #f59e0b;
+      background: #221b11;
+    }
+
+    .alert.low,
+    .risk-low,
+    .log-row.info {
+      border-left-color: #60a5fa;
+    }
+
+    .log-row.success {
+      border-left-color: #22c55e;
+      background: #0d1f17;
+    }
+
+    .source-real {
+      color: #22c55e;
+      font-weight: 700;
+    }
+
+    .source-fake {
+      color: #facc15;
+      font-weight: 700;
+    }
+
+    .response-action {
+      color: #22c55e;
+      font-weight: 700;
+    }
+
+    .agent {
+      font-weight: 700;
+      color: #bfdbfe;
+      margin-bottom: 4px;
+    }
+
+    .agent-badge {
+      display: inline-block;
+      color: #bfdbfe;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .controls-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    button {
+      background: #2563eb;
+      color: white;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    button.danger {
+      background: #991b1b;
+    }
+
+    button.danger:hover {
+      background: #7f1d1d;
+    }
+
+    button.secondary {
+      background: #334155;
+    }
+
+    select {
+      background: #0f172a;
+      color: white;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 6px;
+    }
+
+    .source-health-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .source-card.connected {
+      border-left-color: #22c55e;
+    }
+
+    .source-card.disconnected {
+      border-left-color: #ef4444;
+    }
+
+    .source-card.pending {
+      border-left-color: #facc15;
+    }
+
+    .source-card.disabled {
+      border-left-color: #64748b;
+      opacity: .85;
+    }
+
+    .source-card.enabled,
+    .source-card.checking {
+      border-left-color: #38bdf8;
+    }
+
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .metric-number {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .risk-bar-bg {
+      background: #020617;
+      border-radius: 999px;
+      overflow: hidden;
+      margin-top: 7px;
+      height: 10px;
+    }
+
+    .risk-bar {
+      height: 10px;
+      background: linear-gradient(90deg, #22c55e, #facc15, #ef4444);
+    }
+
+    .schematic-map {
+      background: #06111d;
+      border: 1px solid #263b57;
+      border-radius: 16px;
+      padding: 12px;
+    }
+
+    .coastline {
+      display: grid;
+      gap: 8px;
+      border-left: 4px solid #38bdf8;
+      padding-left: 10px;
+    }
+
+    .map-zone {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px;
+      transition: all .2s ease;
+    }
+
+    .map-zone.active {
+      border-color: #38bdf8;
+      box-shadow: 0 0 18px rgba(56,189,248,.25);
+    }
+
+    .map-zone.pattern {
+      border-color: #facc15;
+      box-shadow: 0 0 24px rgba(250,204,21,.25);
+    }
+
+    .map-zone.critical {
+      border-color: #ef4444;
+      background: #1f1115;
+      box-shadow: 0 0 34px rgba(239,68,68,.45);
+    }
 
     @media (max-width: 1100px) {
-      .summary-strip { grid-template-columns: repeat(2, 1fr); }
-      .grid-2, .grid-3, .source-health-grid, .analytics-grid { grid-template-columns: 1fr; }
-      .topbar { align-items: flex-start; flex-direction: column; }
+      .summary-strip {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .grid-2,
+      .grid-3,
+      .source-health-grid,
+      .analytics-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
   </style>
 </head>
+
 <body>
   <div class="topbar">
     <div>
@@ -97,251 +368,499 @@
   </div>
 
   <div class="summary-strip">
-    <div class="summary-chip"><div class="summary-label">System mode</div><div class="summary-value" id="sumMode">--</div></div>
-    <div class="summary-chip"><div class="summary-label">Town health</div><div class="summary-value" id="sumHealth">--</div></div>
-    <div class="summary-chip"><div class="summary-label">Signals processed</div><div class="summary-value" id="sumSignals">--</div></div>
-    <div class="summary-chip"><div class="summary-label">Connected sources</div><div class="summary-value" id="sumSources">--</div></div>
-    <div class="summary-chip"><div class="summary-label">Duplicates skipped</div><div class="summary-value" id="sumDupes">--</div></div>
-    <div class="summary-chip"><div class="summary-label">Next refresh</div><div class="summary-value" id="sumRefresh">--</div></div>
-    <div class="summary-chip"><div class="summary-label">Critical zones</div><div class="summary-value" id="sumCritical">--</div></div>
+    <div class="summary-chip">
+      <div class="summary-label">System mode</div>
+      <div class="summary-value" id="sumMode">--</div>
+    </div>
+
+    <div class="summary-chip">
+      <div class="summary-label">Town health</div>
+      <div class="summary-value" id="sumHealth">--</div>
+    </div>
+
+    <div class="summary-chip">
+      <div class="summary-label">Signals processed</div>
+      <div class="summary-value" id="sumSignals">--</div>
+    </div>
+
+    <div class="summary-chip">
+      <div class="summary-label">Connected sources</div>
+      <div class="summary-value" id="sumSources">--</div>
+    </div>
+
+    <div class="summary-chip">
+      <div class="summary-label">Duplicates skipped</div>
+      <div class="summary-value" id="sumDupes">--</div>
+    </div>
+
+    <div class="summary-chip">
+      <div class="summary-label">Next refresh</div>
+      <div class="summary-value" id="sumRefresh">--</div>
+    </div>
+
+    <div class="summary-chip">
+      <div class="summary-label">Critical zones</div>
+      <div class="summary-value" id="sumCritical">--</div>
+    </div>
   </div>
 
+  <div class="critical-banner" id="criticalBanner">CRITICAL ZONE MODE ACTIVE</div>
   <div class="waiting-card" id="waitingCard">Waiting for next source refresh...</div>
 
   <div class="grid-2">
     <div class="card">
       <h2>Source Health</h2>
       <button onclick="loadSourceHealth()">Refresh Sources</button>
-      <div id="sourceHealthPanel"><div class="meta">Source health auto-refreshes every 10 seconds.</div></div>
+      <div id="sourceHealthPanel">
+        <div class="meta">Source health auto-refreshes every 10 seconds.</div>
+      </div>
     </div>
+
     <div class="card">
       <h2>Risk Intelligence</h2>
-      <div id="risk"><div class="meta">No accumulated zone risk yet.</div></div>
+      <div id="risk">
+        <div class="meta">No accumulated zone risk yet.</div>
+      </div>
     </div>
   </div>
 
   <div class="grid-2">
-    <div class="panel"><h2>Live Civic Events</h2><div id="events"><div class="meta">No fresh unseen events. Deduplication is active and the system is waiting for the next source refresh.</div></div></div>
-    <div class="panel"><h2>Agent Alerts</h2><div id="alerts"><div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div></div></div>
+    <div class="panel">
+      <h2>Live Civic Events</h2>
+      <div id="events">
+        <div class="meta">No fresh unseen events. Deduplication is active and the system is waiting for the next source refresh.</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Agent Alerts</h2>
+      <div id="alerts">
+        <div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div>
+      </div>
+    </div>
   </div>
 
-  <div class="grid">
-    <div class="panel"><h2>Live Civic Events</h2><div id="events"><div class="meta">No fresh unseen events yet. Deduplication may be holding repeated source records back.</div></div></div>
-    <div class="panel"><h2>Agent Alerts</h2><div id="alerts"><div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div></div></div>
-  </div>
+  <div class="panel">
+    <h2>Agent Comms Log</h2>
 
-  <div class="grid">
-    <div class="panel"><h2>Agent Comms Log</h2><div id="agentComms"><div class="meta">No internal agent messages yet.</div></div></div>
+    <div class="controls-row">
+      <button class="secondary" onclick="pauseComms()">Pause Log</button>
+      <button class="secondary" onclick="resumeComms()">Resume Log</button>
+      <button class="secondary" onclick="clearVisibleComms()">Clear Visible Log</button>
+    </div>
+
+    <div class="meta" id="commsState">Live updates active.</div>
+    <div id="agentComms">
+      <div class="meta">No internal agent messages yet.</div>
+    </div>
   </div>
 
   <div class="grid-2">
     <div class="card">
       <h2>Analytics Intelligence</h2>
       <button onclick="loadAnalytics()">Refresh Analytics</button>
-      <div id="analyticsPanel"><div class="meta">Analytics auto-refresh every 15 seconds.</div></div>
+      <div id="analyticsPanel">
+        <div class="meta">Analytics auto-refresh every 15 seconds.</div>
+      </div>
     </div>
+
     <div class="card">
       <h2>History Intelligence</h2>
+
       <div class="controls-row">
         <button onclick="loadHistory()">Refresh History</button>
+
         <select id="typeFilter" onchange="loadHistory()">
-          <option value="">All Types</option><option value="incident">Incident</option><option value="infrastructure">Infrastructure</option><option value="waste">Waste</option><option value="transport">Transport</option><option value="weather">Weather</option>
+          <option value="">All Types</option>
+          <option value="incident">Incident</option>
+          <option value="infrastructure">Infrastructure</option>
+          <option value="waste">Waste</option>
+          <option value="transport">Transport</option>
+          <option value="weather">Weather</option>
         </select>
+
         <select id="sourceFilter" onchange="loadHistory()">
-          <option value="">All Sources</option><option value="Police.uk">Police.uk</option><option value="Open-Meteo">Open-Meteo</option><option value="Street Manager">Street Manager</option><option value="Simulation">Simulation</option>
+          <option value="">All Sources</option>
+          <option value="Police.uk">Police.uk</option>
+          <option value="Open-Meteo">Open-Meteo</option>
+          <option value="Street Manager">Street Manager</option>
+          <option value="Simulation">Simulation</option>
         </select>
       </div>
-      <div id="historyPanel"><div class="meta">History auto-refreshes every 10 seconds.</div></div>
+
+      <div id="historyPanel">
+        <div class="meta">History auto-refreshes every 10 seconds.</div>
+      </div>
     </div>
   </div>
 
   <div class="card">
     <h2>Blackpool Zones</h2>
+
     <div class="schematic-map">
       <div class="coastline">
-        <div class="map-zone" id="mapzone-North-Shore"><strong>North Shore</strong><div class="meta">Coastal north / promenade pressure</div></div>
-        <div class="map-zone" id="mapzone-Town-Centre"><strong>Town Centre</strong><div class="meta">Central incident and civic activity</div></div>
-        <div class="map-zone" id="mapzone-South-Shore"><strong>South Shore</strong><div class="meta">Coastal central/south pressure</div></div>
-        <div class="map-zone" id="mapzone-Blackpool-South"><strong>Blackpool South</strong><div class="meta">Southern transport and weather area</div></div>
+        <div class="map-zone" id="mapzone-North-Shore">
+          <strong>North Shore</strong>
+          <div class="meta">Coastal north / promenade pressure</div>
+        </div>
+
+        <div class="map-zone" id="mapzone-Town-Centre">
+          <strong>Town Centre</strong>
+          <div class="meta">Central incident and civic activity</div>
+        </div>
+
+        <div class="map-zone" id="mapzone-South-Shore">
+          <strong>South Shore</strong>
+          <div class="meta">Coastal central/south pressure</div>
+        </div>
+
+        <div class="map-zone" id="mapzone-Blackpool-South">
+          <strong>Blackpool South</strong>
+          <div class="meta">Southern transport and weather area</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="card">
+  <div class="card" id="developerControlsCard">
     <h2>Developer Controls</h2>
+
     <div class="controls-row">
       <button onclick="devAction('/dev/force-refresh')">Force Source Refresh</button>
       <button class="secondary" onclick="devAction('/dev/clear-live-feed')">Clear Live Feed</button>
       <button class="secondary" onclick="devAction('/dev/clear-risk-map')">Clear Risk Map</button>
       <button class="danger" onclick="devAction('/dev/reset-database', true)">Reset Local Database</button>
     </div>
-    <div id="devPanel"><div class="meta">Use these for local testing only.</div></div>
+
+    <div id="devPanel">
+      <div class="meta">Use these for local testing only.</div>
+    </div>
   </div>
 
 <script>
-const ws = new WebSocket("ws://127.0.0.1:8000/ws");
+const IS_LOCAL_FRONTEND =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1";
+
+const API_BASE = IS_LOCAL_FRONTEND
+  ? "http://127.0.0.1:8000"
+  : "https://town-warden.onrender.com";
+
+const WS_URL = IS_LOCAL_FRONTEND
+  ? "ws://127.0.0.1:8000/ws"
+  : "wss://town-warden.onrender.com/ws";
+
+let ws = null;
 let commsPaused = false;
 let commsCache = [];
 
-function riskClass(value){ if(value>=80) return "risk-high"; if(value>=50) return "risk-medium"; return "risk-low"; }
-function agentClass(agent){ return "agent-" + String(agent || "default").toLowerCase().replaceAll(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "agent-default"; }
+if (!IS_LOCAL_FRONTEND) {
+  document.getElementById("developerControlsCard").style.display = "none";
+}
 
-function updateSummary(data){
+function riskClass(value) {
+  if (value >= 80) return "risk-high";
+  if (value >= 50) return "risk-medium";
+  return "risk-low";
+}
+
+function limitChildren(containerId, max) {
+  const container = document.getElementById(containerId);
+
+  while (container.children.length > max) {
+    container.removeChild(container.lastElementChild);
+  }
+}
+
+function updateSummary(data) {
   const sources = data.source_health || data.sources || {};
-  const connected = Object.values(sources).filter(s => ["connected","enabled","checking"].includes((s.status||"").toLowerCase())).length;
+  const connected = Object.values(sources).filter(source => {
+    const status = String(source.status || "").toLowerCase();
+    return ["connected", "enabled", "checking"].includes(status);
+  }).length;
+
   document.getElementById("sumMode").innerText = data.system_mode ? "Real Data" : "--";
-  document.getElementById("sumHealth").innerText = (data.health ?? "--") + (data.health !== undefined ? " /100" : "");
-  document.getElementById("sumSignals").innerText = data.history_count ?? "--";
+  document.getElementById("sumHealth").innerText =
+    data.health !== undefined ? `${data.health} /100` : "--";
+  document.getElementById("sumSignals").innerText = data.history_count ?? data.live_history_count ?? "--";
   document.getElementById("sumSources").innerText = `${connected}/${Object.keys(sources).length || 0}`;
   document.getElementById("sumDupes").innerText = data.duplicates_skipped ?? 0;
-  document.getElementById("sumRefresh").innerText = data.next_source_refresh_seconds !== undefined ? `${data.next_source_refresh_seconds}s` : "--";
+  document.getElementById("sumRefresh").innerText =
+    data.next_source_refresh_seconds !== undefined ? `${data.next_source_refresh_seconds}s` : "--";
   document.getElementById("sumCritical").innerText = (data.critical_zones || []).length;
 }
 
-function collapseIdle(logs){
-  const out = [];
-  for(const entry of (logs || [])){
-    const idleLike = entry.type === "idle" || /waiting for next source refresh|No new event available/i.test(entry.message || "");
-    const prev = out[out.length - 1];
-    if(idleLike && prev && prev.agent === entry.agent && (prev.type === "idle" || prev._idleCollapsed)){
-      prev._repeat = (prev._repeat || 1) + 1;
-      prev._idleCollapsed = true;
-      prev.message = `${entry.agent} idle - repeated ${prev._repeat} cycles`;
-      prev.timestamp = entry.timestamp;
-    } else {
-      out.push({...entry});
+function collapseIdle(logs) {
+  const output = [];
+
+  for (const entry of logs || []) {
+    const idleLike = /waiting for next source refresh|no new event available/i.test(entry.message || "");
+    const previous = output[output.length - 1];
+
+    if (idleLike && previous && previous.agent === entry.agent && previous._idleCollapsed) {
+      previous._repeat = (previous._repeat || 1) + 1;
+      previous.message = `${entry.agent} idle — repeated ${previous._repeat} cycles`;
+      previous.timestamp = entry.timestamp;
+      continue;
     }
+
+    output.push({
+      ...entry,
+      _idleCollapsed: idleLike,
+      _repeat: 1
+    });
   }
-  return out;
+
+  return output;
 }
 
-function renderAgentComms(agentLog){
-  if(commsPaused) return;
+function renderAgentComms(agentLog) {
+  if (commsPaused) return;
+
   const collapsed = collapseIdle(agentLog);
   commsCache = collapsed.slice(-50);
   const latest = [...commsCache].reverse();
-  if(!latest.length){ document.getElementById("agentComms").innerHTML = `<div class="meta">No internal agent messages yet.</div>`; return; }
-  document.getElementById("agentComms").innerHTML = latest.map(entry => `
-    <div class="log-row log-level-${entry.level || "info"}">
-      <div class="agent-badge ${agentClass(entry.agent)}">${entry.agent || "System"}</div>
-      <div>${entry.message || "No message."}</div>
-      <div class="meta">${entry.timestamp || ""}</div>
-    </div>`).join("");
-}
-function pauseComms(){ commsPaused = true; document.getElementById("commsState").innerText = "Log updates paused."; }
-function resumeComms(){ commsPaused = false; document.getElementById("commsState").innerText = "Live updates active."; renderAgentComms(commsCache); }
-function clearVisibleComms(){ commsCache = []; document.getElementById("agentComms").innerHTML = `<div class="meta">Visible log cleared. Backend log still active.</div>`; }
 
-function renderSourceHealth(payload){
-  const sources = payload.sources || payload.source_health || {};
-  const entries = Object.entries(sources);
-  if(!entries.length){ document.getElementById("sourceHealthPanel").innerHTML = `<div class="meta">No source health data yet.</div>`; return; }
-  document.getElementById("sourceHealthPanel").innerHTML = `<div class="source-health-grid">${entries.map(([name, info]) => `
-    <div class="source-card ${(info.status || "unknown").toLowerCase()}">
-      <strong>${name}</strong>
-      <div class="meta">${info.message || "No detail available."}</div>
-      <div class="meta">Status: ${(info.status || "unknown").toUpperCase()}</div>
-      <div class="meta">Records returned: ${info.records_returned ?? 0}</div>
-      <div class="meta">New queued: ${info.new_events_queued ?? 0}</div>
-      <div class="meta">Duplicates skipped: ${info.duplicates_skipped ?? 0}</div>
-    </div>`).join("")}</div>`;
-}
-
-async function loadSourceHealth(){
-  try{ const data = await (await fetch("http://127.0.0.1:8000/source-health")).json(); renderSourceHealth(data); updateSummary(data); }
-  catch{ document.getElementById("sourceHealthPanel").innerHTML = `<div class="meta">Source health unavailable. Check backend.</div>`; }
-}
-
-async function loadAnalytics(){
-  try{
-    const data = await (await fetch("http://127.0.0.1:8000/analytics")).json();
-    if((data.total_events || 0) === 0){ document.getElementById("analyticsPanel").innerHTML = `<div class="meta">Analytics will populate once events are saved.</div>`; return; }
-    const typeRows = (data.events_by_type || []).map(item => `<div class="mini-list"><strong>${item.type.toUpperCase()}</strong><div class="meta">${item.count} saved events</div></div>`).join("");
-    const locationRows = (data.top_locations || []).map(item => `<div class="mini-list"><strong>${item.location}</strong><div class="meta">${item.count} saved events</div></div>`).join("");
-    document.getElementById("analyticsPanel").innerHTML = `
-      <div class="analytics-grid">
-        <div class="metric-box"><div class="metric-number">${data.total_events}</div><div class="meta">Total events</div></div>
-        <div class="metric-box"><div class="metric-number">${data.total_alerts}</div><div class="meta">Total alerts</div></div>
-        <div class="metric-box"><div class="metric-number">${data.duplicates_skipped || 0}</div><div class="meta">Duplicates skipped</div></div>
-        <div class="metric-box"><div class="metric-number">${(data.real_vs_simulated?.real || 0)}</div><div class="meta">Real-data events</div></div>
-      </div>
-      <h3>Events by Type</h3>${typeRows || `<div class="meta">No type data yet.</div>`}
-      <h3>Top Locations</h3>${locationRows || `<div class="meta">No location data yet.</div>`}`;
-  } catch { document.getElementById("analyticsPanel").innerHTML = `<div class="meta">Analytics unavailable. Check backend.</div>`; }
-}
-
-async function loadHistory(){
-  try{
-    const typeFilter = document.getElementById("typeFilter").value;
-    const sourceFilter = document.getElementById("sourceFilter").value;
-    let rows = await (await fetch("http://127.0.0.1:8000/history")).json();
-    if(typeFilter) rows = rows.filter(r => r.type === typeFilter);
-    if(sourceFilter) rows = rows.filter(r => r.source === sourceFilter);
-    if(!rows.length){ document.getElementById("historyPanel").innerHTML = `<div class="meta">No saved history matches the current filters.</div>`; return; }
-    document.getElementById("historyPanel").innerHTML = rows.map(r => `<div class="history-row"><strong>${r.type.toUpperCase()}</strong> — ${r.location}<br>${r.text}<div class="meta">${r.timestamp}</div></div>`).join("");
-  } catch { document.getElementById("historyPanel").innerHTML = `<div class="meta">History unavailable. Check backend.</div>`; }
-}
-
-async function devAction(path, confirmFirst=false){
-  if(confirmFirst && !confirm("This is a local development reset. Continue?")) return;
-  try{ const data = await (await fetch("http://127.0.0.1:8000" + path, { method: "POST" })).json(); document.getElementById("devPanel").innerHTML = `<div class="meta">${data.message}</div>`; loadSourceHealth(); loadAnalytics(); loadHistory(); }
-  catch{ document.getElementById("devPanel").innerHTML = `<div class="meta">Developer action failed. Check backend.</div>`; }
-}
-
-function clearZoneStates(){ document.querySelectorAll(".map-zone").forEach(zone => zone.classList.remove("active", "pattern", "critical")); }
-function zoneElements(location){ const suffix = String(location || "").replaceAll(" ", "-"); return [document.getElementById("mapzone-" + suffix)].filter(Boolean); }
-
-function renderAgentComms(agentLog) {
-  if (!Array.isArray(agentLog) || !agentLog.length) {
-    document.getElementById("agentComms").innerHTML = `<div class="meta">No internal agent messages yet.</div>`;
+  if (!latest.length) {
+    document.getElementById("agentComms").innerHTML =
+      `<div class="meta">No internal agent messages yet.</div>`;
     return;
   }
 
-  const latest = [...agentLog].reverse().slice(0, 40);
   document.getElementById("agentComms").innerHTML = latest.map(entry => `
-    <div class="event comms ${entry.level || "info"}">
-      <div class="agent">${entry.agent || "System"}</div>
+    <div class="log-row ${entry.level || "info"}">
+      <div class="agent-badge">${entry.agent || "System"}</div>
       <div>${entry.message || "No message."}</div>
       <div class="meta">${entry.timestamp || ""}</div>
     </div>
   `).join("");
 }
 
-ws.onmessage = (message) => {
-  const data = JSON.parse(message.data);
-  const event = data.event;
-  const alerts = data.alerts || [];
-  const riskMap = data.risk_map || {};
-  const criticalZones = data.critical_zones || [];
-  const isWaiting = data.waiting_for_real_events || event?.type === "waiting";
-  renderAgentComms(data.agent_log || []);
+function pauseComms() {
+  commsPaused = true;
+  document.getElementById("commsState").innerText = "Log updates paused.";
+}
 
-  updateSummary(data);
-  renderSourceHealth({ sources: data.source_health || data.sources });
-  renderAgentComms(data.agent_log || []);
+function resumeComms() {
+  commsPaused = false;
+  document.getElementById("commsState").innerText = "Live updates active.";
+  renderAgentComms(commsCache);
+}
 
-  const waitingCard = document.getElementById("waitingCard");
-  waitingCard.style.display = isWaiting ? "block" : "none";
-  waitingCard.innerText = event?.text || "Waiting for next source refresh...";
+function clearVisibleComms() {
+  commsCache = [];
+  document.getElementById("agentComms").innerHTML =
+    `<div class="meta">Visible log cleared. Backend log still active.</div>`;
+}
 
-  if (!document.getElementById("events").innerHTML.trim()) {
-    document.getElementById("events").innerHTML = `<div class="meta">No fresh unseen events yet. Deduplication may be holding repeated source records back.</div>`;
+function renderSourceHealth(payload) {
+  const sources = payload.sources || payload.source_health || {};
+  const entries = Object.entries(sources);
+
+  if (!entries.length) {
+    document.getElementById("sourceHealthPanel").innerHTML =
+      `<div class="meta">No source health data yet.</div>`;
+    return;
   }
 
-  const banner = document.getElementById("criticalBanner");
-  if (criticalZones.length > 0) {
-    banner.style.display = "block";
-    banner.innerText = "CRITICAL ZONE MODE ACTIVE: " + criticalZones.join(", ");
-  } else {
-    banner.style.display = "none";
+  document.getElementById("sourceHealthPanel").innerHTML = `
+    <div class="source-health-grid">
+      ${entries.map(([name, info]) => {
+        const status = String(info.status || "unknown").toLowerCase();
+
+        return `
+          <div class="source-card ${status}">
+            <strong>${name}</strong>
+            <div class="meta">${info.message || "No detail available."}</div>
+            <div class="meta">Status: ${status.toUpperCase()}</div>
+            <div class="meta">Records returned: ${info.records_returned ?? 0}</div>
+            <div class="meta">Candidate events: ${info.events_emitted ?? 0}</div>
+            <div class="meta">New queued: ${info.new_events_queued ?? 0}</div>
+            <div class="meta">Duplicates skipped: ${info.duplicates_skipped ?? 0}</div>
+            <div class="meta">Last checked: ${info.last_checked || "not yet"}</div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+async function loadSourceHealth() {
+  try {
+    const response = await fetch(`${API_BASE}/source-health`);
+    const data = await response.json();
+
+    renderSourceHealth(data);
+    updateSummary(data);
+  } catch {
+    document.getElementById("sourceHealthPanel").innerHTML =
+      `<div class="meta">Source health unavailable. Check backend.</div>`;
+  }
+}
+
+async function loadAnalytics() {
+  try {
+    const response = await fetch(`${API_BASE}/analytics`);
+    const data = await response.json();
+
+    if ((data.total_events || 0) === 0) {
+      document.getElementById("analyticsPanel").innerHTML =
+        `<div class="meta">Analytics will populate once events are saved.</div>`;
+      return;
+    }
+
+    const typeRows = (data.events_by_type || []).map(item => `
+      <div class="mini-list">
+        <strong>${String(item.type).toUpperCase()}</strong>
+        <div class="meta">${item.count} saved events</div>
+      </div>
+    `).join("");
+
+    const locationRows = (data.top_locations || []).map(item => `
+      <div class="mini-list">
+        <strong>${item.location}</strong>
+        <div class="meta">${item.count} saved events</div>
+      </div>
+    `).join("");
+
+    document.getElementById("analyticsPanel").innerHTML = `
+      <div class="analytics-grid">
+        <div class="metric-box">
+          <div class="metric-number">${data.total_events}</div>
+          <div class="meta">Total events</div>
+        </div>
+
+        <div class="metric-box">
+          <div class="metric-number">${data.total_alerts}</div>
+          <div class="meta">Total alerts</div>
+        </div>
+
+        <div class="metric-box">
+          <div class="metric-number">${data.duplicates_skipped || 0}</div>
+          <div class="meta">Duplicates skipped</div>
+        </div>
+
+        <div class="metric-box">
+          <div class="metric-number">${data.real_vs_simulated?.real || 0}</div>
+          <div class="meta">Real-data events</div>
+        </div>
+      </div>
+
+      <h3>Events by Type</h3>
+      ${typeRows || `<div class="meta">No type data yet.</div>`}
+
+      <h3>Top Locations</h3>
+      ${locationRows || `<div class="meta">No location data yet.</div>`}
+    `;
+  } catch {
+    document.getElementById("analyticsPanel").innerHTML =
+      `<div class="meta">Analytics unavailable. Check backend.</div>`;
+  }
+}
+
+async function loadHistory() {
+  try {
+    const typeFilter = document.getElementById("typeFilter").value;
+    const sourceFilter = document.getElementById("sourceFilter").value;
+
+    const response = await fetch(`${API_BASE}/history`);
+    let rows = await response.json();
+
+    if (typeFilter) {
+      rows = rows.filter(row => row.type === typeFilter);
+    }
+
+    if (sourceFilter) {
+      rows = rows.filter(row => row.source === sourceFilter);
+    }
+
+    if (!rows.length) {
+      document.getElementById("historyPanel").innerHTML =
+        `<div class="meta">No saved history matches the current filters.</div>`;
+      return;
+    }
+
+    document.getElementById("historyPanel").innerHTML = rows.map(row => `
+      <div class="history-row">
+        <strong>${String(row.type).toUpperCase()}</strong> — ${row.location}<br>
+        ${row.text}
+        <div class="meta">Source: ${row.source}</div>
+        ${row.source_event_id ? `<div class="meta">Source event ID: ${row.source_event_id}</div>` : ""}
+        <div class="meta">${row.timestamp}</div>
+      </div>
+    `).join("");
+  } catch {
+    document.getElementById("historyPanel").innerHTML =
+      `<div class="meta">History unavailable. Check backend.</div>`;
+  }
+}
+
+async function devAction(path, confirmFirst = false) {
+  if (!IS_LOCAL_FRONTEND) {
+    document.getElementById("devPanel").innerHTML =
+      `<div class="meta">Developer controls are disabled on the public frontend.</div>`;
+    return;
   }
 
-  const alertHtml = alerts.map(alert => `
+  if (confirmFirst && !confirm("This is a local development reset. Continue?")) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE}${path}`, { method: "POST" });
+    const data = await response.json();
+
+    document.getElementById("devPanel").innerHTML =
+      `<div class="meta">${data.message}</div>`;
+
+    loadSourceHealth();
+    loadAnalytics();
+    loadHistory();
+  } catch {
+    document.getElementById("devPanel").innerHTML =
+      `<div class="meta">Developer action failed. Check backend.</div>`;
+  }
+}
+
+function clearZoneStates() {
+  document.querySelectorAll(".map-zone").forEach(zone => {
+    zone.classList.remove("active", "pattern", "critical");
+  });
+}
+
+function getZoneElement(location) {
+  const suffix = String(location || "").replaceAll(" ", "-");
+  return document.getElementById("mapzone-" + suffix);
+}
+
+function renderRisk(riskMap) {
+  const riskEntries = Object.entries(riskMap || {}).sort((a, b) => b[1] - a[1]);
+
+  document.getElementById("risk").innerHTML = riskEntries.length
+    ? riskEntries.map(([location, value]) => {
+        const rounded = Math.round(value);
+        const width = Math.min(rounded, 100);
+
+        return `
+          <div class="risk-row ${riskClass(value)}">
+            <strong>${location}</strong>
+            <div class="meta">Risk pressure: ${rounded}</div>
+            <div class="risk-bar-bg">
+              <div class="risk-bar" style="width:${width}%"></div>
+            </div>
+          </div>
+        `;
+      }).join("")
+    : `<div class="meta">No accumulated zone risk yet.</div>`;
+}
+
+function renderAlerts(alerts) {
+  const alertHtml = (alerts || []).map(alert => `
     <div class="alert ${alert.severity}">
       <div class="agent">${alert.agent}</div>
       <strong>${alert.location}</strong><br>
       ${alert.message}
-      <div class="meta">Severity: ${alert.severity.toUpperCase()}</div>
+      <div class="meta">Severity: ${String(alert.severity || "unknown").toUpperCase()}</div>
       ${alert.caused_by ? `<div class="meta">Caused by: ${alert.caused_by}</div>` : ""}
       ${alert.type === "response_signal" ? `<div class="meta response-action">Action: ${alert.action}</div>` : ""}
     </div>
@@ -349,38 +868,117 @@ ws.onmessage = (message) => {
 
   if (alertHtml) {
     document.getElementById("alerts").innerHTML = alertHtml + document.getElementById("alerts").innerHTML;
-  } else if (!document.getElementById("alerts").innerHTML.trim()) {
-    document.getElementById("alerts").innerHTML = `<div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div>`;
+    limitChildren("alerts", 40);
+  } else if (!document.getElementById("alerts").innerText.trim()) {
+    document.getElementById("alerts").innerHTML =
+      `<div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div>`;
+  }
+}
+
+function renderLiveEvent(event, isWaiting) {
+  const waitingCard = document.getElementById("waitingCard");
+
+  if (isWaiting) {
+    waitingCard.style.display = "block";
+    waitingCard.innerText = event?.text || "Waiting for next source refresh...";
+    return;
   }
 
-  var risk_Entries =Object.entries(riskMap).sort((a, b) => b[1] - a[1]);
-  document.getElementById("risk").innerHTML = riskEntries.length ? riskEntries.map(([location, value]) => {
-    const rounded = Math.round(value);
-    const width = Math.min(rounded, 100);
-    return `<div class="risk-row ${riskClass(value)}"><strong>${location}</strong><div class="meta">Risk pressure: ${rounded}</div><div class="risk-bar-bg"><div class="risk-bar" style="width:${width}%"></div></div></div>`;
-  }).join("") : `<div class="meta">No accumulated zone risk yet.</div>`;
+  waitingCard.style.display = "none";
 
+  if (!event) return;
+
+  const sourceClass = event.real_data ? "source-real" : "source-fake";
+  const sourceText = event.real_data ? "REAL DATA" : "SIMULATION";
+
+  document.getElementById("events").innerHTML = `
+    <div class="event">
+      <strong>${String(event.type).toUpperCase()}</strong> — ${event.location}<br>
+      ${event.text}
+      <div class="meta">Source: <span class="${sourceClass}">${sourceText}</span> (${event.source})</div>
+      ${event.source_event_id ? `<div class="meta">Source event ID: ${event.source_event_id}</div>` : ""}
+    </div>
+  ` + document.getElementById("events").innerHTML;
+
+  limitChildren("events", 40);
+}
+
+function renderZones(event, alerts, criticalZones, isWaiting) {
   clearZoneStates();
 
   if (event && !isWaiting) {
-    zoneElements(event.location).forEach(zone => zone.classList.add("active"));
+    const activeZone = getZoneElement(event.location);
+    if (activeZone) activeZone.classList.add("active");
   }
 
-  var risk_Entries =Object.entries(riskMap).sort((a,b) => b[1]-a[1]);
-  document.getElementById("risk").innerHTML = riskEntries.length ? riskEntries.map(([location, value]) => `<div class="risk-row ${riskClass(value)}"><strong>${location}</strong><div class="meta">Risk pressure: ${Math.round(value)}</div><div class="risk-bar-bg"><div class="risk-bar" style="width:${Math.min(Math.round(value),100)}%"></div></div></div>`).join("") : `<div class="meta">No accumulated zone risk yet.</div>`;
+  (alerts || []).forEach(alert => {
+    if (alert.agent === "Trend Warden" || alert.agent === "Critical Zone Warden") {
+      const zone = getZoneElement(alert.location);
+      if (zone) zone.classList.add("pattern");
+    }
+  });
 
-  clearZoneStates();
-  if(event && !isWaiting) zoneElements(event.location).forEach(z => z.classList.add("active"));
-  alerts.forEach(a => { if(a.agent === "Trend Warden" || a.agent === "Critical Zone Warden") zoneElements(a.location).forEach(z => z.classList.add("pattern")); });
-  criticalZones.forEach(location => zoneElements(location).forEach(z => z.classList.add("critical")));
-};
+  (criticalZones || []).forEach(location => {
+    const zone = getZoneElement(location);
+    if (zone) zone.classList.add("critical");
+  });
+}
+
+function connectWebSocket() {
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    document.getElementById("statusPill").innerText = "CONNECTED";
+  };
+
+  ws.onerror = () => {
+    document.getElementById("statusPill").innerText = "BACKEND ERROR";
+  };
+
+  ws.onclose = () => {
+    document.getElementById("statusPill").innerText = "DISCONNECTED";
+
+    setTimeout(() => {
+      connectWebSocket();
+    }, 5000);
+  };
+
+  ws.onmessage = (message) => {
+    const data = JSON.parse(message.data);
+
+    const event = data.event;
+    const alerts = data.alerts || [];
+    const riskMap = data.risk_map || {};
+    const criticalZones = data.critical_zones || [];
+    const isWaiting = data.waiting_for_real_events || event?.type === "waiting";
+
+    updateSummary(data);
+    renderSourceHealth({ sources: data.source_health || data.sources || {} });
+    renderAgentComms(data.agent_log || []);
+    renderLiveEvent(event, isWaiting);
+    renderAlerts(alerts);
+    renderRisk(riskMap);
+    renderZones(event, alerts, criticalZones, isWaiting);
+
+    const banner = document.getElementById("criticalBanner");
+
+    if (criticalZones.length > 0) {
+      banner.style.display = "block";
+      banner.innerText = "CRITICAL ZONE MODE ACTIVE: " + criticalZones.join(", ");
+    } else {
+      banner.style.display = "none";
+    }
+  };
+}
 
 setInterval(loadHistory, 10000);
 setInterval(loadAnalytics, 15000);
 setInterval(loadSourceHealth, 10000);
+
 loadHistory();
 loadAnalytics();
 loadSourceHealth();
+connectWebSocket();
 </script>
 </body>
 </html>
