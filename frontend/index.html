@@ -229,6 +229,7 @@
       padding: 10px;
       cursor: pointer;
     }
+    .list-item.active { border-color: var(--brand); box-shadow: inset 0 0 0 1px var(--brand); }
 
     .list-item button {
       all: unset;
@@ -266,6 +267,20 @@
 
     .dev-link a { color: var(--brand); font-weight: 600; text-decoration: none; }
     .dev-link a:hover { text-decoration: underline; }
+    .layer-note { font-size: 0.82rem; color: var(--muted); margin-top: 6px; }
+    .legend {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      background: var(--surface);
+      display: grid;
+      gap: 8px;
+    }
+    .legend-row { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+    .swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+    .muted-toggle { opacity: 0.55; }
+    .jump-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+    .jump-buttons button { min-height: 34px; padding: 6px 10px; }
 
     .sr-only {
       position: absolute;
@@ -354,19 +369,34 @@
           </div>
 
           <section>
-            <h3>Selected Context</h3>
-            <div id="selectedContext" class="meta">Click a zone or marker to see details.</div>
+            <h3>Zone detail</h3>
+            <div id="selectedContext" class="meta">Select a zone. Clicking the map will show local signals and risk context.</div>
             <div class="chip-list" id="selectedMeta"></div>
+            <div class="jump-buttons" id="zoneJumpButtons"></div>
           </section>
 
           <section>
-            <h3>Recent signals in view</h3>
+            <h3>Recent signals</h3>
             <div id="selectedSignals" class="list"><div class="meta">No area selected yet.</div></div>
           </section>
 
           <section>
             <h3>Quick jump</h3>
             <div id="searchResults" class="list"><div class="meta">Type to filter areas and signals.</div></div>
+          </section>
+
+          <section>
+            <h3>Map legend</h3>
+            <div class="legend">
+              <div class="legend-row"><span class="swatch" style="background:#22c55e"></span> Low</div>
+              <div class="legend-row"><span class="swatch" style="background:#f59e0b"></span> Watch</div>
+              <div class="legend-row"><span class="swatch" style="background:#ef4444"></span> Elevated</div>
+              <div class="legend-row"><span class="swatch" style="background:#dc2626"></span> Critical</div>
+              <div class="legend-row">🟦 Police.uk marker</div>
+              <div class="legend-row">🟩 Open‑Meteo marker</div>
+              <div class="legend-row">⬜ Street Manager marker</div>
+              <div class="layer-note">Some locations are approximate where public sources do not provide precise coordinates. This is an early indicator, not official advice.</div>
+            </div>
           </section>
         </aside>
       </div>
@@ -383,38 +413,34 @@
   // Public/developer separation note:
   // This public page intentionally avoids raw logs and internal controls.
   // Diagnostic views remain in frontend/dev.html.
-
   const IS_LOCAL_FRONTEND = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
   const API_BASE = IS_LOCAL_FRONTEND ? "http://127.0.0.1:8000" : "https://town-warden.onrender.com";
   const WS_URL = IS_LOCAL_FRONTEND ? "ws://127.0.0.1:8000/ws" : "wss://town-warden.onrender.com/ws";
-
-  // Significant UX change: static pseudo-map has been replaced by an actual Leaflet map with
-  // source-specific marker layers, risk overlays, and synchronized right-side context panel.
-  const ZONES = {
-    "Town Centre": { center: [53.8166, -3.0506], radius: 900, description: "Retail, transport and nightlife activity." },
-    "North Shore": { center: [53.8315, -3.0554], radius: 1100, description: "Seafront and residential strip north of the centre." },
-    "South Shore": { center: [53.7928, -3.0552], radius: 1200, description: "Promenade, attractions and event-heavy southern area." }
-  };
+  const SOURCE_LABELS = ["Police.uk", "Open-Meteo", "Street Manager"];
 
   let ws = null;
   let latestInsights = [];
   let latestEvents = [];
   let latestRiskMap = {};
   let latestSourceHealth = {};
+  let mapData = { zones: [], signals: [], source_layers: {} };
+  let selectedZoneId = null;
+  let zoneLayersById = {};
 
   let map;
   let zoneLayerGroup;
-  let sourceLayers = {
+  const sourceLayers = {
     "Police.uk": L.layerGroup(),
     "Open-Meteo": L.layerGroup(),
     "Street Manager": L.layerGroup()
   };
 
+  // Shared thresholds for public wording and map colors.
   function zoneRiskLevel(value) {
-    if (value >= 75) return { key: "critical", label: "Critical", css: "risk-elevated", color: "#dc2626" };
-    if (value >= 45) return { key: "high", label: "Elevated", css: "risk-elevated", color: "#ef4444" };
-    if (value >= 20) return { key: "medium", label: "Watch", css: "risk-watch", color: "#f59e0b" };
-    return { key: "low", label: "Stable", css: "risk-stable", color: "#22c55e" };
+    if (value >= 150) return { key: "critical", label: "Critical", css: "risk-elevated", color: "#dc2626" };
+    if (value >= 80) return { key: "elevated", label: "Elevated", css: "risk-elevated", color: "#ef4444" };
+    if (value >= 40) return { key: "watch", label: "Watch", css: "risk-watch", color: "#f59e0b" };
+    return { key: "low", label: "Low", css: "risk-stable", color: "#22c55e" };
   }
 
   function formatTime(value) {
@@ -433,7 +459,7 @@
   function updateSummary(data, sourceHealth) {
     const sources = sourceHealth || data.source_health || data.sources || {};
     latestSourceHealth = sources;
-    const publicSources = ["Police.uk", "Open-Meteo", "Street Manager"];
+    const publicSources = SOURCE_LABELS;
     const connected = publicSources.filter(name => {
       const status = String(sources[name]?.status || "").toLowerCase();
       return ["connected", "checking", "enabled", "pending"].includes(status);
@@ -449,11 +475,15 @@
     const healthClass = townHealth >= 75 ? "risk-stable" : townHealth >= 45 ? "risk-watch" : "risk-elevated";
     document.getElementById("answerEverything").innerHTML = `<span class="${healthClass}">${townHealth >= 75 ? "Generally stable" : townHealth >= 45 ? "Some concerns to monitor" : "Elevated concern"}</span> (${townHealth}/100)`;
 
-    const topRisk = Object.entries(data.risk_map || latestRiskMap || {}).sort((a, b) => b[1] - a[1])[0];
+    const topRisk = mapData.zones.length
+      ? [...mapData.zones].sort((a, b) => b.risk_score - a.risk_score)[0]
+      : Object.entries(data.risk_map || latestRiskMap || {}).sort((a, b) => b[1] - a[1])[0];
     if (topRisk) {
-      const level = zoneRiskLevel(topRisk[1]);
-      document.getElementById("answerRiskNow").innerHTML = `<span class="${level.css}">${topRisk[0]} - ${level.label}</span>`;
-      document.getElementById("answerRiskHint").innerText = `Current risk score: ${Math.round(topRisk[1])}.`;
+      const zoneName = topRisk.name || topRisk[0];
+      const riskScore = topRisk.risk_score ?? topRisk[1];
+      const level = zoneRiskLevel(riskScore);
+      document.getElementById("answerRiskNow").innerHTML = `<span class="${level.css}">${zoneName} - ${level.label}</span>`;
+      document.getElementById("answerRiskHint").innerText = `Current risk score: ${Math.round(riskScore)}.`;
     } else {
       document.getElementById("answerRiskNow").innerText = "No elevated zone currently.";
       document.getElementById("answerRiskHint").innerText = "No accumulated risk from latest runtime feed.";
@@ -467,7 +497,7 @@
 
   function renderPublicSourceStatus(sourceHealth) {
     const sources = sourceHealth || latestSourceHealth || {};
-    document.getElementById("publicSourceStatus").innerHTML = ["Police.uk", "Open-Meteo", "Street Manager"].map(name => {
+    document.getElementById("publicSourceStatus").innerHTML = SOURCE_LABELS.map(name => {
       const info = sources[name] || {};
       const note = name === "Street Manager"
         ? "Webhook endpoints ready. Awaiting external approval/notifications."
@@ -483,6 +513,15 @@
     return "🟢";
   }
 
+  function extractZoneIdFromText(text) {
+    const lower = String(text || "").toLowerCase();
+    if (lower.includes("north shore")) return "north_shore";
+    if (lower.includes("south shore")) return "south_shore";
+    if (lower.includes("town centre") || lower.includes("town center")) return "town_centre";
+    return null;
+  }
+
+  // Insight-to-map linking: insight cards can jump to matching map zones.
   function renderPublicInsights() {
     const container = document.getElementById("publicInsights");
     if (!latestInsights.length) {
@@ -490,126 +529,201 @@
       return;
     }
 
-    container.innerHTML = latestInsights.slice(-9).reverse().map(item => `
+    container.innerHTML = latestInsights.slice(-9).reverse().map((item, idx) => {
+      const zoneId = extractZoneIdFromText(`${item.location || ""} ${item.title || ""} ${item.summary || ""}`);
+      return `
       <article class="insight-card ${item.severity || "info"}">
         <h3><span class="severity-icon" role="img" aria-label="${item.severity || "info"} severity">${severityIcon(item.severity)}</span>${item.title || "Insight"}</h3>
         <p>${item.summary || "No summary."}</p>
         <div class="caption">Affected source(s): ${item.source_context || "General"}</div>
         <div class="caption">${formatTime(item.timestamp)}</div>
+        ${zoneId ? `<button type="button" data-insight-map="${idx}" class="caption">View on map</button>` : ""}
       </article>
-    `).join("");
+    `}).join("");
+
+    Array.from(container.querySelectorAll("button[data-insight-map]")).forEach(button => {
+      button.addEventListener("click", () => {
+        const idx = Number(button.getAttribute("data-insight-map"));
+        const insight = latestInsights.slice(-9).reverse()[idx];
+        const zoneId = insight ? extractZoneIdFromText(`${insight.location || ""} ${insight.title || ""} ${insight.summary || ""}`) : null;
+        if (zoneId) selectZoneById(zoneId, true);
+      });
+    });
   }
 
   function inferZoneForEvent(event) {
-    const text = `${event.location || ""} ${event.text || ""}`.toLowerCase();
-    if (text.includes("north")) return "North Shore";
-    if (text.includes("south")) return "South Shore";
-    if (text.includes("centre") || text.includes("center") || text.includes("town")) return "Town Centre";
+    const zoneId = extractZoneIdFromText(`${event.zone || ""} ${event.location || ""} ${event.text || ""}`);
+    const fallback = mapData.zones.find(z => z.id === zoneId) || mapData.zones[0];
+    return fallback ? fallback.name : "Town Centre";
+  }
 
-    // fallback by nearest known zone coordinate if event has lat/lon
-    if (typeof event.lat === "number" && typeof event.lon === "number") {
-      let best = "Town Centre";
-      let bestDist = Infinity;
-      Object.entries(ZONES).forEach(([name, zone]) => {
-        const d = Math.hypot(zone.center[0] - event.lat, zone.center[1] - event.lon);
-        if (d < bestDist) { bestDist = d; best = name; }
-      });
-      return best;
+  // Approximate marker handling:
+  // if a signal is approximate (zone centroid), we apply deterministic offsets
+  // so markers do not stack exactly on top of each other.
+  function eventCoordinates(signal, index = 0) {
+    if (typeof signal.lat === "number" && typeof signal.lng === "number" && !signal.is_approximate) {
+      return [signal.lat, signal.lng];
     }
-
-    return "Town Centre";
+    const baseLat = Number(signal.lat || 53.8166);
+    const baseLng = Number(signal.lng || -3.0506);
+    const step = (index % 7) * 0.00055;
+    const direction = index % 2 === 0 ? 1 : -1;
+    return [baseLat + (step * direction), baseLng + (step * -direction)];
   }
 
-  function eventCoordinates(event, zoneName) {
-    if (typeof event.lat === "number" && typeof event.lon === "number") return [event.lat, event.lon];
-    const zone = ZONES[zoneName] || ZONES["Town Centre"];
-    const jitterA = (Math.random() - 0.5) * 0.01;
-    const jitterB = (Math.random() - 0.5) * 0.01;
-    return [zone.center[0] + jitterA, zone.center[1] + jitterB];
-  }
-
-  function showContextPanel(title, description, metaTags = [], matchingSignals = []) {
-    document.getElementById("selectedContext").innerHTML = `<strong>${title}</strong><div class="meta">${description}</div>`;
-    document.getElementById("selectedMeta").innerHTML = metaTags.map(tag => `<span class="chip">${tag}</span>`).join("");
+  function showZonePanel(zone) {
+    if (!zone) {
+      document.getElementById("selectedContext").innerHTML = "Select a zone. Clicking the map will show local signals and risk context.";
+      document.getElementById("selectedMeta").innerHTML = "";
+      document.getElementById("selectedSignals").innerHTML = `<div class="meta">No area selected yet.</div>`;
+      return;
+    }
+    const zoneSignals = mapData.signals.filter(s => s.zone === zone.name).slice(0, 5);
+    document.getElementById("selectedContext").innerHTML = `
+      <strong>${zone.name}</strong>
+      <div class="meta">${zone.summary}</div>
+      <div class="meta">${zone.source_coverage_note}</div>
+    `;
+    document.getElementById("selectedMeta").innerHTML = [
+      `Risk ${zone.risk_score}`,
+      `Level ${zone.risk_level}`,
+      `Trend ${zone.trend}`,
+      `${zone.latest_signal_count} latest signals`,
+      `Dominant ${zone.dominant_source}`
+    ].map(tag => `<span class="chip">${tag}</span>`).join("");
 
     const container = document.getElementById("selectedSignals");
-    if (!matchingSignals.length) {
+    if (!zoneSignals.length) {
       container.innerHTML = `<div class="meta">No recent signals for this selection.</div>`;
       return;
     }
 
-    container.innerHTML = matchingSignals.slice(0, 8).map(item => `
+    container.innerHTML = zoneSignals.map(item => `
       <div class="list-item">
-        <strong>${String(item.type || "signal").toUpperCase()}</strong>
-        <div>${item.text || "No signal summary."}</div>
-        <div class="caption">${item.source || "Unknown"} • ${formatTime(item.timestamp)}</div>
+        <strong>${String(item.title || item.type || "signal")}</strong>
+        <div>${item.description || "No signal summary."}</div>
+        <div class="caption">${item.source || "Unknown"} • ${formatTime(item.timestamp)} • ${item.is_approximate ? "Approximate" : "Precise"}</div>
       </div>
     `).join("");
   }
 
+  // Zone selection logic:
+  // selecting a zone updates map styling, zone detail panel, and related insights emphasis.
+  function selectZoneById(zoneId, pan = false) {
+    selectedZoneId = zoneId;
+    const zone = mapData.zones.find(z => z.id === zoneId);
+    if (!zone) return;
+
+    Object.entries(zoneLayersById).forEach(([id, layer]) => {
+      const selected = id === zoneId;
+      layer.setStyle({
+        weight: selected ? 4 : 2,
+        fillOpacity: selected ? 0.32 : 0.18
+      });
+    });
+
+    if (pan) map.setView([zone.lat, zone.lng], 13);
+    showZonePanel(zone);
+    updateInsightsForSelection(zone);
+    updateSearchResults(document.getElementById("locationSearch").value || "");
+  }
+
+  function updateInsightsForSelection(zone) {
+    const cards = Array.from(document.querySelectorAll("#publicInsights .insight-card"));
+    cards.forEach(card => {
+      card.style.opacity = zone ? "0.55" : "1";
+    });
+    if (!zone) return;
+    cards.forEach(card => {
+      const text = card.innerText.toLowerCase();
+      if (text.includes(zone.name.toLowerCase())) card.style.opacity = "1";
+    });
+  }
+
+  function renderZoneJumpButtons() {
+    document.getElementById("zoneJumpButtons").innerHTML = mapData.zones.map(zone => `
+      <button type="button" data-zone-jump="${zone.id}">${zone.name}</button>
+    `).join("");
+    Array.from(document.querySelectorAll("button[data-zone-jump]")).forEach(button => {
+      button.addEventListener("click", () => selectZoneById(button.getAttribute("data-zone-jump"), true));
+    });
+  }
+
+  // Source layer toggles:
+  // Street Manager remains visible in UI but muted when source-limited/pending.
+  function annotateLayerControls() {
+    const overlays = document.querySelector(".leaflet-control-layers-overlays");
+    if (!overlays) return;
+    const labels = overlays.querySelectorAll("label");
+    labels.forEach(label => {
+      const text = label.innerText;
+      if (text.includes("Street Manager")) {
+        label.classList.add("muted-toggle");
+        if (!label.querySelector(".layer-note")) {
+          const note = document.createElement("div");
+          note.className = "layer-note";
+          note.innerText = "Pending approval. No live roadworks payloads yet.";
+          label.appendChild(note);
+        }
+      }
+    });
+  }
+
   function renderMapLayers() {
     zoneLayerGroup.clearLayers();
+    zoneLayersById = {};
     Object.values(sourceLayers).forEach(layer => layer.clearLayers());
 
-    Object.entries(ZONES).forEach(([name, zone]) => {
-      const score = latestRiskMap[name] || 0;
-      const level = zoneRiskLevel(score);
-      const circle = L.circle(zone.center, {
-        radius: zone.radius,
+    mapData.zones.forEach((zone) => {
+      const level = zoneRiskLevel(zone.risk_score || 0);
+      const circle = L.circle([zone.lat, zone.lng], {
+        radius: zone.radius_m,
         color: level.color,
         fillColor: level.color,
         fillOpacity: 0.18,
         weight: 2
       });
-
-      const zoneInsights = latestInsights.filter(i => String(i.title || i.summary || "").toLowerCase().includes(name.toLowerCase().split(" ")[0]));
-      const zoneSignals = latestEvents.filter(event => inferZoneForEvent(event) === name);
-
-      circle.bindPopup(`<strong>${name}</strong><br>Risk score: ${Math.round(score)} (${level.label})<br>${zone.description}`);
-      circle.on("click", () => {
-        const trendText = score >= 45 ? "Trend: elevated" : score >= 20 ? "Trend: watch" : "Trend: stable";
-        showContextPanel(
-          name,
-          `${zone.description} ${zoneInsights[0]?.summary || "No additional insight currently."}`,
-          [`Risk ${Math.round(score)}`, trendText],
-          zoneSignals
-        );
-      });
+      circle.bindPopup(`<strong>${zone.name}</strong><br>Risk score: ${Math.round(zone.risk_score)} (${level.label})<br>${zone.summary}`);
+      circle.on("click", () => selectZoneById(zone.id, false));
+      zoneLayersById[zone.id] = circle;
       zoneLayerGroup.addLayer(circle);
     });
 
-    latestEvents.forEach((event) => {
-      const zoneName = inferZoneForEvent(event);
-      const coords = eventCoordinates(event, zoneName);
-      const sourceName = ["Police.uk", "Open-Meteo", "Street Manager"].includes(event.source) ? event.source : "Police.uk";
-      const marker = L.marker(coords, { title: `${event.source || "Signal"}: ${event.location || zoneName}` });
-      marker.bindPopup(`<strong>${event.type || "Signal"}</strong><br>${event.location || zoneName}<br>${event.text || "No detail."}`);
+    mapData.signals.forEach((signal, idx) => {
+      const coords = eventCoordinates(signal, idx);
+      const sourceName = SOURCE_LABELS.includes(signal.source) ? signal.source : "Police.uk";
+      const emoji = sourceName === "Open-Meteo" ? "🟩" : sourceName === "Street Manager" ? "⬜" : "🟦";
+      const marker = L.marker(coords, { title: `${sourceName}: ${signal.zone || "Blackpool"}` });
+      marker.bindPopup(`
+        <strong>${emoji} ${signal.title || "Signal"}</strong><br>
+        Source: ${sourceName}<br>
+        Zone: ${signal.zone || "Unknown"}<br>
+        Time: ${formatTime(signal.timestamp)}<br>
+        ${signal.description || "No detail."}<br>
+        <em>${signal.is_approximate ? "Location approximate." : ""}</em>
+      `);
       marker.on("click", () => {
-        const zoneScore = latestRiskMap[zoneName] || 0;
-        showContextPanel(
-          event.location || zoneName,
-          event.text || "No detail.",
-          [event.source || "Unknown source", `Risk ${Math.round(zoneScore)}`],
-          latestEvents.filter(e => inferZoneForEvent(e) === zoneName)
-        );
+        const zone = mapData.zones.find(z => z.name === signal.zone);
+        if (zone) selectZoneById(zone.id, false);
       });
       sourceLayers[sourceName].addLayer(marker);
     });
+    if (selectedZoneId) selectZoneById(selectedZoneId, false);
   }
 
   function updateSearchResults(query) {
     const q = query.trim().toLowerCase();
     const results = [];
-    Object.entries(ZONES).forEach(([zoneName, zone]) => {
-      if (!q || zoneName.toLowerCase().includes(q)) {
-        results.push({ type: "zone", label: zoneName, zoneName, score: latestRiskMap[zoneName] || 0, center: zone.center });
+    mapData.zones.forEach((zone) => {
+      if (!q || zone.name.toLowerCase().includes(q)) {
+        results.push({ type: "zone", label: zone.name, zoneId: zone.id, score: zone.risk_score, center: [zone.lat, zone.lng] });
       }
     });
 
-    latestEvents.forEach(event => {
-      const hay = `${event.location || ""} ${event.text || ""}`.toLowerCase();
+    mapData.signals.forEach(signal => {
+      const hay = `${signal.zone || ""} ${signal.title || ""} ${signal.description || ""}`.toLowerCase();
       if (!q || hay.includes(q)) {
-        results.push({ type: "event", event, label: `${event.location || "Unknown"} (${event.source || "Source"})` });
+        results.push({ type: "signal", signal, label: `${signal.title || "Signal"} (${signal.source || "Source"})` });
       }
     });
 
@@ -621,9 +735,10 @@
 
     container.innerHTML = results.slice(0, 12).map((result, idx) => {
       if (result.type === "zone") {
-        return `<div class="list-item"><button type="button" aria-label="View ${result.zoneName}" data-result="zone-${idx}"><strong>${result.zoneName}</strong><div class="caption">Risk ${Math.round(result.score)}</div></button></div>`;
+        const activeClass = selectedZoneId === result.zoneId ? "active" : "";
+        return `<div class="list-item ${activeClass}"><button type="button" aria-label="View ${result.label}" data-result="zone-${idx}"><strong>${result.label}</strong><div class="caption">Risk ${Math.round(result.score)}</div></button></div>`;
       }
-      return `<div class="list-item"><button type="button" aria-label="View signal ${result.label}" data-result="event-${idx}"><strong>${result.label}</strong><div class="caption">${result.event.text || "No summary"}</div></button></div>`;
+      return `<div class="list-item"><button type="button" aria-label="View signal ${result.label}" data-result="signal-${idx}"><strong>${result.label}</strong><div class="caption">${result.signal.description || "No summary"}</div></button></div>`;
     }).join("");
 
     Array.from(container.querySelectorAll("button[data-result]")).forEach(button => {
@@ -634,14 +749,10 @@
         if (!result) return;
 
         if (kind === "zone") {
-          map.setView(result.center, 13);
-          const zone = ZONES[result.zoneName];
-          showContextPanel(result.zoneName, zone.description, [`Risk ${Math.round(result.score)}`], latestEvents.filter(e => inferZoneForEvent(e) === result.zoneName));
+          selectZoneById(result.zoneId, true);
         } else {
-          const zoneName = inferZoneForEvent(result.event);
-          const coords = eventCoordinates(result.event, zoneName);
-          map.setView(coords, 14);
-          showContextPanel(result.event.location || zoneName, result.event.text || "No detail.", [result.event.source || "Unknown"], latestEvents.filter(e => inferZoneForEvent(e) === zoneName));
+          const zone = mapData.zones.find(z => z.name === result.signal.zone) || mapData.zones[0];
+          if (zone) selectZoneById(zone.id, true);
         }
       });
     });
@@ -666,6 +777,28 @@
       "Open-Meteo signals": sourceLayers["Open-Meteo"],
       "Street Manager signals": sourceLayers["Street Manager"]
     }, { collapsed: false }).addTo(map);
+    setTimeout(annotateLayerControls, 0);
+  }
+
+  // Map-data loading:
+  // we prefer structured /map-data for zone-aware rendering; runtime-status remains as fallback.
+  async function loadMapData() {
+    try {
+      const response = await fetch(`${API_BASE}/map-data`);
+      const data = await response.json();
+      mapData = {
+        zones: data.zones || [],
+        signals: data.signals || [],
+        source_layers: data.source_layers || {}
+      };
+      latestRiskMap = Object.fromEntries(mapData.zones.map(zone => [zone.name, zone.risk_score]));
+      renderMapLayers();
+      renderZoneJumpButtons();
+      updateSearchResults(document.getElementById("locationSearch").value || "");
+      if (!selectedZoneId && mapData.zones.length) showZonePanel(null);
+    } catch {
+      // Keep page usable using existing event stream if map-data is temporarily unavailable.
+    }
   }
 
   async function loadSourceHealth() {
@@ -696,7 +829,7 @@
       const data = await response.json();
       latestRiskMap = data.risk_map || latestRiskMap || {};
       updateSummary(data, data.source_health || data.sources || {});
-      renderMapLayers();
+      await loadMapData();
       updateSearchResults(document.getElementById("locationSearch").value || "");
     } catch {
       updateSummary({}, {});
@@ -725,8 +858,7 @@
       latestInsights = data.insights || latestInsights;
       renderPublicInsights();
       renderPublicSourceStatus(data.source_health || data.sources || {});
-      renderMapLayers();
-      updateSearchResults(document.getElementById("locationSearch").value || "");
+      loadMapData();
     };
   }
 
@@ -749,6 +881,7 @@
   setInterval(loadInsights, 20000);
 
   loadRuntimeStatus();
+  loadMapData();
   loadSourceHealth();
   loadInsights();
   connectWebSocket();
