@@ -99,6 +99,36 @@ source_health = {
     },
 }
 
+MAP_ZONES = {
+    "town_centre": {
+        "id": "town_centre",
+        "name": "Town Centre",
+        "lat": 53.8166,
+        "lng": -3.0506,
+        "radius_m": 900,
+    },
+    "north_shore": {
+        "id": "north_shore",
+        "name": "North Shore",
+        "lat": 53.8315,
+        "lng": -3.0554,
+        "radius_m": 1100,
+    },
+    "south_shore": {
+        "id": "south_shore",
+        "name": "South Shore",
+        "lat": 53.7928,
+        "lng": -3.0552,
+        "radius_m": 1200,
+    },
+}
+
+SOURCE_LAYER_FLAGS = {
+    "police_uk": True,
+    "open_meteo": True,
+    "street_manager": False,
+}
+
 
 def log_agent(agent, message, level="info"):
     """
@@ -518,6 +548,47 @@ def runtime_status():
     }
 
 
+def map_risk_level(score):
+    if score >= 150:
+        return "critical"
+    if score >= 80:
+        return "elevated"
+    if score >= 40:
+        return "watch"
+    return "low"
+
+
+def infer_zone_from_location(location_text):
+    text = str(location_text or "").lower()
+
+    if "north" in text:
+        return MAP_ZONES["north_shore"]
+    if "south" in text:
+        return MAP_ZONES["south_shore"]
+    if "centre" in text or "center" in text or "town" in text:
+        return MAP_ZONES["town_centre"]
+
+    return MAP_ZONES["town_centre"]
+
+
+def zone_summary(name, risk_level):
+    if risk_level == "critical":
+        return f"{name} currently has concentrated civic signals and should be monitored closely."
+    if risk_level == "elevated":
+        return f"{name} is showing an elevated pattern of recent civic signals."
+    if risk_level == "watch":
+        return f"{name} has a watch-level pattern of early indicators."
+    return f"{name} is currently showing a low concentration of civic signals."
+
+
+def map_trend(score):
+    if score >= 150:
+        return "rising"
+    if score >= 80:
+        return "steady"
+    return "stable"
+
+
 @app.get("/")
 def home():
     return {
@@ -541,6 +612,92 @@ def get_source_health():
 @app.get("/runtime-status")
 def get_runtime_status():
     return runtime_status()
+
+
+@app.get("/map-data")
+def get_map_data():
+    conn = connect()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT source_event_id, type, source, location, text, timestamp
+        FROM events
+        ORDER BY id DESC
+        LIMIT 120
+    """)
+    rows = cursor.fetchall()
+    conn.close()
+
+    zone_signal_counts = {zone["name"]: 0 for zone in MAP_ZONES.values()}
+    zone_source_counts = {zone["name"]: {} for zone in MAP_ZONES.values()}
+    recent_zone_signals = {zone["name"]: 0 for zone in MAP_ZONES.values()}
+
+    signals = []
+    now = datetime.now()
+
+    for idx, row in enumerate(rows):
+        signal_id, signal_type, source, location, text, timestamp = row
+        zone = infer_zone_from_location(location)
+        zone_name = zone["name"]
+
+        zone_signal_counts[zone_name] += 1
+        zone_source_counts[zone_name][source] = zone_source_counts[zone_name].get(source, 0) + 1
+
+        try:
+            event_time = datetime.fromisoformat(timestamp) if timestamp else None
+        except ValueError:
+            event_time = None
+
+        if event_time and now - event_time <= timedelta(hours=24):
+            recent_zone_signals[zone_name] += 1
+
+        signals.append({
+            "id": signal_id or f"signal:{idx}",
+            "type": signal_type or "signal",
+            "source": source or "Unknown",
+            "zone": zone_name,
+            "title": f"{signal_type or 'Signal'} in {zone_name}",
+            "description": text or "No additional source-limited detail.",
+            "lat": zone["lat"],
+            "lng": zone["lng"],
+            "timestamp": timestamp,
+            "severity": "info",
+            "is_approximate": True,
+            "approximate_note": "Coordinates are currently approximate and represent zone centres.",
+        })
+
+    zones = []
+
+    for zone in MAP_ZONES.values():
+        zone_name = zone["name"]
+        score = int(round(risk_map.get(zone_name, 0)))
+        risk_level = map_risk_level(score)
+
+        dominant_source = "No dominant source"
+        if zone_source_counts[zone_name]:
+            dominant_source = max(zone_source_counts[zone_name], key=zone_source_counts[zone_name].get)
+
+        zones.append({
+            "id": zone["id"],
+            "name": zone_name,
+            "risk_score": score,
+            "risk_level": risk_level,
+            "lat": zone["lat"],
+            "lng": zone["lng"],
+            "radius_m": zone["radius_m"],
+            "latest_signal_count": recent_zone_signals[zone_name] or zone_signal_counts[zone_name],
+            "dominant_source": dominant_source,
+            "source_coverage_note": "Patterns may reflect source coverage because available public feeds are uneven.",
+            "summary": zone_summary(zone_name, risk_level),
+            "trend": map_trend(score),
+        })
+
+    return {
+        "generated_at": datetime.now().isoformat(),
+        "zones": zones,
+        "signals": signals,
+        "source_layers": SOURCE_LAYER_FLAGS,
+    }
 
 
 @app.get("/agent-log")
