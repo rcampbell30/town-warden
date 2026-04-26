@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -13,15 +13,22 @@ except ImportError:
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 
+# Open-Meteo does not need second-by-second checks.
+# Cache successful responses for 60 minutes.
+CACHE_SECONDS = 60 * 60
+
+# If Open-Meteo rate-limits us, stop asking for the rest of the day.
+rate_limited_until = None
+cached_events = []
+cached_message = None
+cached_at = None
+
+
+def now():
+    return datetime.now()
+
 
 def fetch_json(url):
-    """
-    Fetch JSON from Open-Meteo.
-
-    Uses a browser-like User-Agent so hosted environments are less likely
-    to get odd network behaviour.
-    """
-
     try:
         request = Request(
             url,
@@ -41,25 +48,35 @@ def fetch_json(url):
         except Exception:
             body = ""
 
-        return None, f"HTTP {error.code}: {body[:180]}"
+        return None, {
+            "status": error.code,
+            "body": body[:250],
+            "retry_after": error.headers.get("Retry-After"),
+        }
 
     except URLError as error:
-        return None, f"URL error: {error.reason}"
+        return None, {
+            "status": "url_error",
+            "body": str(error.reason),
+            "retry_after": None,
+        }
 
     except TimeoutError:
-        return None, "Request timed out."
+        return None, {
+            "status": "timeout",
+            "body": "Request timed out.",
+            "retry_after": None,
+        }
 
     except json.JSONDecodeError:
-        return None, "Response was not valid JSON."
+        return None, {
+            "status": "json_error",
+            "body": "Response was not valid JSON.",
+            "retry_after": None,
+        }
 
 
 def build_weather_url():
-    """
-    Build the Open-Meteo URL safely.
-
-    Keep the current variables simple and stable.
-    """
-
     params = {
         "latitude": BLACKPOOL_LAT,
         "longitude": BLACKPOOL_LNG,
@@ -76,11 +93,6 @@ def build_weather_url():
 
 
 def extract_current_weather(data):
-    """
-    Supports both the modern Open-Meteo 'current' format and the older
-    'current_weather' style if the API response changes shape.
-    """
-
     if not isinstance(data, dict):
         return None
 
@@ -107,25 +119,111 @@ def extract_current_weather(data):
     return None
 
 
+def build_events_from_weather(current):
+    precipitation = current["precipitation"]
+    wind_speed = current["wind_speed"]
+    temperature = current["temperature"]
+
+    weather_hour = now().strftime("%Y%m%d%H")
+    events = []
+
+    if precipitation > 0:
+        events.append({
+            "type": "weather",
+            "location": "Blackpool South",
+            "text": f"Weather signal: precipitation {precipitation}mm, temperature {temperature}°C",
+            "timestamp": now().isoformat(),
+            "source": "Open-Meteo",
+            "source_event_id": f"openmeteo:{weather_hour}:rain:Blackpool-South",
+            "real_data": True,
+        })
+
+    if wind_speed >= 25:
+        events.append({
+            "type": "weather",
+            "location": "North Shore",
+            "text": f"Weather signal: elevated coastal wind speed {wind_speed} km/h",
+            "timestamp": now().isoformat(),
+            "source": "Open-Meteo",
+            "source_event_id": f"openmeteo:{weather_hour}:wind:North-Shore",
+            "real_data": True,
+        })
+
+    return events
+
+
+def tomorrow_morning():
+    tomorrow = now() + timedelta(days=1)
+    return tomorrow.replace(hour=1, minute=0, second=0, microsecond=0)
+
+
 def fetch_events(update_source_health):
-    """
-    Fetch Blackpool weather from Open-Meteo and convert threshold hits
-    into Town Warden weather events.
-    """
+    global rate_limited_until
+    global cached_events
+    global cached_message
+    global cached_at
+
+    current_time = now()
+
+    # If rate-limited, do not keep hammering Open-Meteo.
+    if rate_limited_until and current_time < rate_limited_until:
+        update_source_health(
+            "Open-Meteo",
+            "rate_limited",
+            f"Open-Meteo rate-limited until {rate_limited_until.isoformat()}. Using cached/no weather events.",
+            records_returned=0,
+            events_emitted=0,
+            new_events_queued=0,
+        )
+        return cached_events
+
+    # Use cached weather for 60 minutes.
+    if cached_at and current_time - cached_at < timedelta(seconds=CACHE_SECONDS):
+        update_source_health(
+            "Open-Meteo",
+            "connected",
+            f"{cached_message} Cached weather reused.",
+            records_returned=1,
+            events_emitted=len(cached_events),
+            new_events_queued=0,
+        )
+        return cached_events
 
     url = build_weather_url()
     data, error = fetch_json(url)
 
     if error:
+        status = error.get("status")
+        body = error.get("body", "")
+        retry_after = error.get("retry_after")
+
+        if status == 429:
+            if retry_after and str(retry_after).isdigit():
+                rate_limited_until = current_time + timedelta(seconds=int(retry_after))
+            else:
+                rate_limited_until = tomorrow_morning()
+
+            update_source_health(
+                "Open-Meteo",
+                "rate_limited",
+                f"Open-Meteo rate-limited: {body}. Paused until {rate_limited_until.isoformat()}.",
+                records_returned=0,
+                events_emitted=0,
+                new_events_queued=0,
+            )
+
+            return cached_events
+
         update_source_health(
             "Open-Meteo",
             "disconnected",
-            f"Open-Meteo request failed: {error}",
+            f"Open-Meteo request failed: {body}",
             records_returned=0,
             events_emitted=0,
             new_events_queued=0,
         )
-        return []
+
+        return cached_events
 
     current = extract_current_weather(data)
 
@@ -138,59 +236,25 @@ def fetch_events(update_source_health):
             events_emitted=0,
             new_events_queued=0,
         )
-        return []
+        return cached_events
 
-    precipitation = current["precipitation"]
-    wind_speed = current["wind_speed"]
-    temperature = current["temperature"]
-    weather_code = current["weather_code"]
+    cached_events = build_events_from_weather(current)
+    cached_at = current_time
 
-    weather_hour = datetime.now().strftime("%Y%m%d%H")
-
-    events = []
-
-    if precipitation > 0:
-        events.append({
-            "type": "weather",
-            "location": "Blackpool South",
-            "text": f"Weather signal: precipitation {precipitation}mm, temperature {temperature}°C",
-            "timestamp": datetime.now().isoformat(),
-            "source": "Open-Meteo",
-            "source_event_id": f"openmeteo:{weather_hour}:rain:Blackpool-South",
-            "real_data": True,
-        })
-
-    if wind_speed >= 25:
-        events.append({
-            "type": "weather",
-            "location": "North Shore",
-            "text": f"Weather signal: elevated coastal wind speed {wind_speed} km/h",
-            "timestamp": datetime.now().isoformat(),
-            "source": "Open-Meteo",
-            "source_event_id": f"openmeteo:{weather_hour}:wind:North-Shore",
-            "real_data": True,
-        })
-
-    if events:
-        message = (
-            f"Weather checked. Wind {wind_speed} km/h, "
-            f"precipitation {precipitation}mm, temperature {temperature}°C. "
-            f"Events emitted: {len(events)}."
-        )
-    else:
-        message = (
-            f"Weather checked. No threshold triggered. "
-            f"Wind {wind_speed} km/h, precipitation {precipitation}mm, "
-            f"temperature {temperature}°C, weather code {weather_code}."
-        )
+    cached_message = (
+        f"Weather checked. Wind {current['wind_speed']} km/h, "
+        f"precipitation {current['precipitation']}mm, "
+        f"temperature {current['temperature']}°C, "
+        f"weather code {current['weather_code']}."
+    )
 
     update_source_health(
         "Open-Meteo",
         "connected",
-        message,
+        f"{cached_message} Events emitted: {len(cached_events)}.",
         records_returned=1,
-        events_emitted=len(events),
+        events_emitted=len(cached_events),
         new_events_queued=0,
     )
 
-    return events
+    return cached_events
