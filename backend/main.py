@@ -1,6 +1,5 @@
-"""Town Warden FastAPI backend."""
-import hashlib
 import asyncio
+import hashlib
 import json
 from datetime import datetime, timedelta
 
@@ -28,6 +27,7 @@ from storage import (
     setup_database,
 )
 
+
 app = FastAPI()
 
 app.add_middleware(
@@ -35,6 +35,8 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "https://town-warden.netlify.app",
+        "https://*.netlify.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -43,13 +45,17 @@ app.add_middleware(
 
 setup_database()
 
+
 history = []
 risk_map = {}
 real_event_queue = []
+agent_log = []
+
 duplicate_count = 0
 last_source_fetch_time = None
-agent_log = []
 last_wait_log_bucket = None
+
+
 source_health = {
     "Police.uk": {
         "status": "checking",
@@ -71,7 +77,7 @@ source_health = {
     },
     "Street Manager": {
         "status": "pending",
-        "message": "API registration pending.",
+        "message": "Waiting for live webhook data.",
         "records_returned": 0,
         "events_emitted": 0,
         "new_events_queued": 0,
@@ -90,6 +96,24 @@ source_health = {
 }
 
 
+def log_agent(agent, message, level="info"):
+    """
+    Add an internal system/agent message for the Agent Comms Log.
+    """
+
+    agent_log.append({
+        "timestamp": datetime.now().isoformat(),
+        "agent": agent,
+        "message": message,
+        "level": level,
+    })
+
+    agent_log[:] = agent_log[-80:]
+
+
+log_agent("System", "Town Warden backend started.", "success")
+
+
 def update_source_health(
     source_name,
     status,
@@ -100,6 +124,7 @@ def update_source_health(
     duplicates_skipped=None,
 ):
     current = source_health.get(source_name, {})
+
     current["status"] = status
     current["message"] = message
     current["records_returned"] = records_returned
@@ -121,14 +146,123 @@ def seconds_until_next_source_refresh():
 
     elapsed = datetime.now() - last_source_fetch_time
     remaining = SOURCE_REFRESH_SECONDS - elapsed.total_seconds()
+
     return max(0, int(round(remaining)))
 
 
-def fetch_real_events():
-    """Fetch all connector events, deduplicate, then return only new events."""
+def make_payload_fingerprint(prefix, payload):
+    """
+    Creates a stable fallback ID for webhook payloads.
+
+    If Street Manager does not provide a clean ID field,
+    this prevents duplicate webhook payloads being saved repeatedly.
+    """
+
+    raw = json.dumps(payload, sort_keys=True)
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    return f"{prefix}:{digest}"
+
+
+def normalise_street_manager_payload(kind, payload):
+    """
+    Converts a Street Manager webhook payload into a Town Warden event.
+
+    This is defensive because we need to inspect real Street Manager payloads
+    before doing more accurate roadworks mapping.
+    """
+
+    if not isinstance(payload, dict):
+        payload = {"raw_payload": payload}
+
+    possible_id = (
+        payload.get("id")
+        or payload.get("permitReferenceNumber")
+        or payload.get("activityId")
+        or payload.get("worksReference")
+        or payload.get("reference")
+        or payload.get("eventId")
+        or payload.get("notificationId")
+    )
+
+    source_event_id = (
+        f"streetmanager:{kind}:{possible_id}"
+        if possible_id
+        else make_payload_fingerprint(f"streetmanager:{kind}", payload)
+    )
+
+    works_reference = (
+        payload.get("worksReference")
+        or payload.get("permitReferenceNumber")
+        or payload.get("reference")
+        or "unknown reference"
+    )
+
+    return {
+        "type": "infrastructure",
+        "location": "Town Centre",
+        "text": f"Street Manager {kind} notification received ({works_reference})",
+        "timestamp": datetime.now().isoformat(),
+        "source": "Street Manager",
+        "source_event_id": source_event_id,
+        "real_data": True,
+    }
+
+
+def queue_webhook_event(event):
+    """
+    Save a webhook event and also push it into the live queue if it is new.
+    """
+
     global duplicate_count
 
+    saved = save_event(event)
+
+    if saved:
+        real_event_queue.append(event)
+
+        source_health["Street Manager"]["status"] = "connected"
+        source_health["Street Manager"]["message"] = "Live webhook received from Street Manager."
+        source_health["Street Manager"]["records_returned"] += 1
+        source_health["Street Manager"]["events_emitted"] += 1
+        source_health["Street Manager"]["new_events_queued"] += 1
+        source_health["Street Manager"]["last_checked"] = datetime.now().isoformat()
+
+        log_agent(
+            "Street Manager Connector",
+            f"Webhook event saved and queued: {event['source_event_id']}",
+            "success",
+        )
+
+    else:
+        duplicate_count += 1
+
+        source_health["Street Manager"]["status"] = "connected"
+        source_health["Street Manager"]["message"] = "Duplicate Street Manager webhook received and ignored."
+        source_health["Street Manager"]["records_returned"] += 1
+        source_health["Street Manager"]["duplicates_skipped"] += 1
+        source_health["Street Manager"]["last_checked"] = datetime.now().isoformat()
+
+        log_agent(
+            "Deduplication Guard",
+            f"Skipped duplicate Street Manager webhook: {event['source_event_id']}",
+            "warning",
+        )
+
+    return saved
+
+
+def fetch_real_events():
+    """
+    Fetch all connector events, deduplicate, then return only new events.
+    """
+
+    global duplicate_count
+
+    log_agent("Source Monitor", "Source refresh started.", "info")
+
     fetched_events = []
+
     fetched_events += police_uk.fetch_events(update_source_health)
     fetched_events += open_meteo.fetch_events(update_source_health)
     fetched_events += street_manager.fetch_events(update_source_health)
@@ -162,6 +296,12 @@ def fetch_real_events():
         current["last_checked"] = datetime.now().isoformat()
         source_health[source] = current
 
+        log_agent(
+            "Deduplication Guard",
+            f"Skipped {count} duplicate records from {source}.",
+            "warning",
+        )
+
     for source_name in ["Police.uk", "Open-Meteo", "Street Manager"]:
         source_new = len([event for event in new_events if event.get("source") == source_name])
 
@@ -169,6 +309,12 @@ def fetch_real_events():
             base_message = source_health[source_name].get("message", "").split(" New queued:")[0]
             source_health[source_name]["new_events_queued"] = source_new
             source_health[source_name]["message"] = f"{base_message} New queued: {source_new}."
+
+    log_agent(
+        "Source Monitor",
+        f"Source refresh completed. New queued events: {len(new_events)}.",
+        "success",
+    )
 
     return new_events
 
@@ -179,52 +325,11 @@ def force_source_refresh():
 
     last_source_fetch_time = datetime.now()
     real_event_queue = fetch_real_events()
+
+    log_agent("Developer Controls", f"Manual source refresh queued {len(real_event_queue)} events.", "info")
+
     return len(real_event_queue)
-def make_payload_fingerprint(prefix, payload):
-    """
-    Creates a stable fallback ID for webhook payloads.
 
-    If Street Manager does not give us a clean ID field,
-    this prevents duplicate webhook payloads being saved repeatedly.
-    """
-
-    raw = json.dumps(payload, sort_keys=True)
-    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-    return f"{prefix}:{digest}"
-
-
-def normalise_street_manager_payload(kind, payload):
-    """
-    Converts a Street Manager webhook payload into a Town Warden event.
-
-    This is intentionally defensive because external webhook payloads can vary.
-    We will improve the field mapping once we see real Street Manager data.
-    """
-
-    possible_id = (
-        payload.get("id")
-        or payload.get("permitReferenceNumber")
-        or payload.get("activityId")
-        or payload.get("worksReference")
-        or payload.get("reference")
-    )
-
-    source_event_id = (
-        f"streetmanager:{kind}:{possible_id}"
-        if possible_id
-        else make_payload_fingerprint(f"streetmanager:{kind}", payload)
-    )
-
-    return {
-        "type": "infrastructure",
-        "location": "Town Centre",
-        "text": f"Street Manager {kind} notification received",
-        "timestamp": datetime.now().isoformat(),
-        "source": "Street Manager",
-        "source_event_id": source_event_id,
-        "real_data": True,
-    }
 
 def get_next_event():
     global real_event_queue
@@ -234,6 +339,7 @@ def get_next_event():
         return real_event_queue.pop(0)
 
     now = datetime.now()
+
     should_fetch_sources = (
         last_source_fetch_time is None
         or now - last_source_fetch_time >= timedelta(seconds=SOURCE_REFRESH_SECONDS)
@@ -256,40 +362,69 @@ def update_risk(alerts):
     for alert in alerts:
         location = alert["location"]
         impact = alert.get("score_impact", 5)
+
         risk_map[location] = risk_map.get(location, 0) + impact
 
     for location in list(risk_map.keys()):
+        previous = risk_map[location]
         risk_map[location] *= 0.9
+
+        if previous >= 10:
+            log_agent(
+                "Risk Engine",
+                f"{location} risk decayed from {round(previous, 1)} to {round(risk_map[location], 1)}.",
+                "info",
+            )
+
         if risk_map[location] < 1:
             del risk_map[location]
 
 
 def calculate_health(alerts):
     score = 100
+
     for alert in alerts:
         score -= alert.get("score_impact", 0)
+
     return max(score, 0)
 
 
 def run_agents(events):
     primary_signals = []
+
     primary_signals += infrastructure_warden(events)
     primary_signals += waste_warden(events)
     primary_signals += incident_warden(events)
     primary_signals += weather_warden(events)
 
     cascade_signals = []
+
     cascade_signals += mobility_warden(primary_signals)
     cascade_signals += public_health_warden(primary_signals)
     cascade_signals += emergency_pressure_warden(primary_signals)
 
     trend_signals = trend_warden(events)
+
     all_signals = primary_signals + cascade_signals + trend_signals
+
+    if all_signals:
+        log_agent("Agent Network", f"{len(all_signals)} agent signals generated.", "success")
+    else:
+        log_agent("Agent Network", "Agents checked current history. No alert threshold crossed.", "info")
 
     update_risk(all_signals)
 
     zone_signals, critical_zones = critical_zone_warden(risk_map)
     response_signals = response_warden(critical_zones)
+
+    if critical_zones:
+        log_agent(
+            "Critical Zone Warden",
+            f"Critical zones active: {', '.join(critical_zones)}.",
+            "danger",
+        )
+    else:
+        log_agent("Critical Zone Warden", "No critical zones active.", "info")
 
     return all_signals + zone_signals + response_signals, critical_zones
 
@@ -304,6 +439,7 @@ def runtime_status():
         "queued_events": len(real_event_queue),
         "live_history_count": len(history),
         "risk_map": risk_map,
+        "agent_log_count": len(agent_log),
     }
 
 
@@ -317,57 +453,21 @@ def home():
         **runtime_status(),
     }
 
-def make_payload_fingerprint(prefix, payload):
-    """
-    Creates a stable fallback ID for webhook payloads.
 
-    If Street Manager does not give us a clean ID field,
-    this prevents duplicate webhook payloads being saved repeatedly.
-    """
-
-    raw = json.dumps(payload, sort_keys=True)
-    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-    return f"{prefix}:{digest}"
-
-
-def normalise_street_manager_payload(kind, payload):
-    """
-    Converts a Street Manager webhook payload into a Town Warden event.
-
-    This is intentionally defensive because external webhook payloads can vary.
-    We will improve the field mapping once we see real Street Manager data.
-    """
-
-    possible_id = (
-        payload.get("id")
-        or payload.get("permitReferenceNumber")
-        or payload.get("activityId")
-        or payload.get("worksReference")
-        or payload.get("reference")
-    )
-
-    source_event_id = (
-        f"streetmanager:{kind}:{possible_id}"
-        if possible_id
-        else make_payload_fingerprint(f"streetmanager:{kind}", payload)
-    )
-
-    return {
-        "type": "infrastructure",
-        "location": "Town Centre",
-        "text": f"Street Manager {kind} notification received",
-        "timestamp": datetime.now().isoformat(),
-        "source": "Street Manager",
-        "source_event_id": source_event_id,
-        "real_data": True,
-    }
 @app.get("/source-health")
 def get_source_health():
     return {
         "sources": source_health,
         "source_health": source_health,
         **runtime_status(),
+    }
+
+
+@app.get("/agent-log")
+def get_agent_log():
+    return {
+        "agent_log": agent_log[-80:],
+        "count": len(agent_log),
     }
 
 
@@ -487,9 +587,52 @@ def get_analytics():
     }
 
 
+@app.post("/webhooks/street-manager/permits")
+async def street_manager_permits(request: Request):
+    payload = await request.json()
+    event = normalise_street_manager_payload("permit", payload)
+    saved = queue_webhook_event(event)
+
+    return {
+        "status": "received",
+        "kind": "permit",
+        "saved": saved,
+        "source_event_id": event["source_event_id"],
+    }
+
+
+@app.post("/webhooks/street-manager/activities")
+async def street_manager_activities(request: Request):
+    payload = await request.json()
+    event = normalise_street_manager_payload("activity", payload)
+    saved = queue_webhook_event(event)
+
+    return {
+        "status": "received",
+        "kind": "activity",
+        "saved": saved,
+        "source_event_id": event["source_event_id"],
+    }
+
+
+@app.post("/webhooks/street-manager/section-58")
+async def street_manager_section_58(request: Request):
+    payload = await request.json()
+    event = normalise_street_manager_payload("section-58", payload)
+    saved = queue_webhook_event(event)
+
+    return {
+        "status": "received",
+        "kind": "section-58",
+        "saved": saved,
+        "source_event_id": event["source_event_id"],
+    }
+
+
 @app.post("/dev/force-refresh")
 def dev_force_refresh():
     queued = force_source_refresh()
+
     return {
         "message": "Source refresh forced.",
         "queued_events": queued,
@@ -500,6 +643,8 @@ def dev_force_refresh():
 @app.post("/dev/clear-live-feed")
 def dev_clear_live_feed():
     history.clear()
+    log_agent("Developer Controls", "Live feed memory cleared.", "warning")
+
     return {
         "message": "Live feed memory cleared.",
         **runtime_status(),
@@ -509,6 +654,8 @@ def dev_clear_live_feed():
 @app.post("/dev/clear-risk-map")
 def dev_clear_risk_map():
     risk_map.clear()
+    log_agent("Developer Controls", "Risk map cleared.", "warning")
+
     return {
         "message": "Risk map cleared.",
         **runtime_status(),
@@ -521,15 +668,20 @@ def dev_reset_database():
     global last_source_fetch_time
 
     clear_database()
+
     history.clear()
     risk_map.clear()
     real_event_queue.clear()
+    agent_log.clear()
+
     duplicate_count = 0
     last_source_fetch_time = None
 
     for source in source_health.values():
         source["new_events_queued"] = 0
         source["duplicates_skipped"] = 0
+
+    log_agent("Developer Controls", "Local database and runtime memory reset.", "danger")
 
     return {
         "message": "Local database and runtime memory reset.",
@@ -540,6 +692,7 @@ def dev_reset_database():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     global duplicate_count
+    global last_wait_log_bucket
 
     await websocket.accept()
 
@@ -549,6 +702,16 @@ async def websocket_endpoint(websocket: WebSocket):
         event = get_next_event()
 
         if event is None:
+            current_wait_bucket = datetime.now().strftime("%Y-%m-%dT%H:%M")
+
+            if current_wait_bucket != last_wait_log_bucket:
+                last_wait_log_bucket = current_wait_bucket
+                log_agent(
+                    "Source Monitor",
+                    "No new event available. Waiting for next source refresh.",
+                    "info",
+                )
+
             payload = {
                 "event": {
                     "type": "waiting",
@@ -567,10 +730,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 "critical_zones": [],
                 "source_health": source_health,
                 "sources": source_health,
+                "agent_log": agent_log[-80:],
                 "waiting_for_real_events": True,
                 "system_mode": "real-data-only civic intelligence system",
                 **runtime_status(),
             }
+
             await websocket.send_text(json.dumps(payload))
             continue
 
@@ -578,15 +743,29 @@ async def websocket_endpoint(websocket: WebSocket):
 
         if not saved:
             duplicate_count += 1
+
             source = event.get("source", "unknown")
             current = source_health.get(source, {})
             current["duplicates_skipped"] = current.get("duplicates_skipped", 0) + 1
             current["last_checked"] = datetime.now().isoformat()
             source_health[source] = current
+
+            log_agent(
+                "Deduplication Guard",
+                f"Skipped duplicate event from {source}: {event.get('source_event_id')}",
+                "warning",
+            )
+
             continue
 
         history.append(event)
         history[:] = history[-30:]
+
+        log_agent(
+            "Event Router",
+            f"Accepted {event['type']} event from {event['source']} for {event['location']}.",
+            "success",
+        )
 
         alerts, critical_zones = run_agents(history)
 
@@ -594,6 +773,7 @@ async def websocket_endpoint(websocket: WebSocket):
             save_alert(alert)
 
         save_risk_snapshot(risk_map)
+
         health = calculate_health(alerts)
 
         payload = {
@@ -606,6 +786,7 @@ async def websocket_endpoint(websocket: WebSocket):
             "critical_zones": critical_zones,
             "source_health": source_health,
             "sources": source_health,
+            "agent_log": agent_log[-80:],
             "waiting_for_real_events": False,
             "system_mode": "real-data-only civic intelligence system",
             **runtime_status(),
