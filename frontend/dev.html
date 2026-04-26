@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Town Warden - Developer Dashboard</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --surface: #111827;
+      --surface-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --border: #334155;
+      --brand: #2563eb;
+      --danger: #b91c1c;
+    }
+
+    body {
+      margin: 0;
+      padding: 18px;
+      font-family: Inter, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+
+    .page { max-width: 1280px; margin: 0 auto; }
+    .topbar { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 14px; align-items: start; }
+    h1 { margin: 0; font-size: 2rem; }
+    h2 { margin: 0 0 10px; font-size: 1.25rem; }
+    h3 { margin: 8px 0; font-size: 1rem; }
+
+    .subtitle, .meta { color: var(--muted); }
+    .status-pill { border-radius: 999px; border: 1px solid #1d4ed8; background: #1e3a8a; padding: 8px 12px; font-weight: 700; }
+    .nav-link a { color: #93c5fd; text-decoration: none; font-weight: 700; }
+
+    .card, .panel {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface);
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+
+    .list-item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      background: var(--surface-2);
+      margin-bottom: 8px;
+    }
+
+    .insight {
+      border: 1px solid var(--border);
+      border-left: 5px solid #60a5fa;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: var(--surface-2);
+    }
+    .insight.warning { border-left-color: #f59e0b; }
+    .insight.high, .insight.critical, .insight.danger { border-left-color: #ef4444; }
+
+    .controls-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+    button {
+      border: 0;
+      border-radius: 9px;
+      padding: 8px 11px;
+      cursor: pointer;
+      font-weight: 700;
+      background: var(--brand);
+      color: white;
+    }
+    button.secondary { background: #374151; }
+    button.danger { background: var(--danger); }
+
+    select {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 8px;
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    @media (max-width: 980px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      .topbar { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div>
+        <h1>Town Warden Developer Dashboard</h1>
+        <div class="subtitle">Diagnostics, raw metadata, and internal tooling</div>
+        <div class="nav-link"><a href="./index.html">Back to public dashboard</a></div>
+      </div>
+      <div id="statusPill" class="status-pill">Connecting...</div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <h2>Raw Source Health</h2>
+        <button onclick="loadSourceHealth()">Refresh Source Health</button>
+        <div id="devSourceHealth" class="meta">Waiting for source diagnostics.</div>
+      </div>
+      <div class="card">
+        <h2>Analytics Intelligence</h2>
+        <button onclick="loadAnalytics()">Refresh Analytics</button>
+        <div id="devAnalytics" class="meta">Waiting for analytics intelligence.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>History Intelligence</h2>
+      <div class="controls-row">
+        <button onclick="loadHistory()">Refresh History</button>
+        <select id="typeFilter" onchange="loadHistory()">
+          <option value="">All Types</option>
+          <option value="incident">Incident</option>
+          <option value="infrastructure">Infrastructure</option>
+          <option value="waste">Waste</option>
+          <option value="transport">Transport</option>
+          <option value="weather">Weather</option>
+        </select>
+        <select id="sourceFilter" onchange="loadHistory()">
+          <option value="">All Sources</option>
+          <option value="Police.uk">Police.uk</option>
+          <option value="Open-Meteo">Open-Meteo</option>
+          <option value="Street Manager">Street Manager</option>
+          <option value="Simulation">Simulation</option>
+        </select>
+      </div>
+      <div id="devHistory" class="meta">Waiting for history intelligence.</div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <h2>Agent Comms Log</h2>
+        <div class="controls-row">
+          <button class="secondary" onclick="pauseComms()">Pause</button>
+          <button class="secondary" onclick="resumeComms()">Resume</button>
+          <button class="secondary" onclick="clearVisibleComms()">Clear Visible Log</button>
+        </div>
+        <div class="meta" id="commsState">Live updates active.</div>
+        <div id="agentComms"><div class="meta">No internal messages yet.</div></div>
+      </div>
+      <div class="panel">
+        <h2>Raw Agent Insights</h2>
+        <div id="devInsights"><div class="meta">Waiting for raw insight metadata.</div></div>
+      </div>
+    </div>
+
+    <div class="card" id="developerControlsCard">
+      <h2>Developer Controls</h2>
+      <div class="controls-row">
+        <button onclick="devAction('/dev/force-refresh')">Force Source Refresh</button>
+        <button class="secondary" onclick="devAction('/dev/clear-live-feed')">Clear Live Feed</button>
+        <button class="secondary" onclick="devAction('/dev/clear-risk-map')">Clear Risk Map</button>
+        <button class="danger" onclick="devAction('/dev/reset-database', true)">Reset Database</button>
+      </div>
+      <div id="devPanel" class="meta">Use locally for diagnostics.</div>
+    </div>
+  </div>
+
+  <script>
+  // Public/developer separation note:
+  // This page intentionally contains raw operational detail and controls
+  // that are removed from the public civic dashboard (frontend/index.html).
+
+  const IS_LOCAL_FRONTEND = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const API_BASE = IS_LOCAL_FRONTEND ? "http://127.0.0.1:8000" : "https://town-warden.onrender.com";
+  const WS_URL = IS_LOCAL_FRONTEND ? "ws://127.0.0.1:8000/ws" : "wss://town-warden.onrender.com/ws";
+
+  let ws = null;
+  let latestInsights = [];
+  let latestComms = [];
+  let commsPaused = false;
+
+  function updateHeroStatus(connected) {
+    document.getElementById("statusPill").innerText = connected ? "Backend Connected" : "Backend Disconnected";
+  }
+
+  function collapseIdle(logs) {
+    const out = [];
+    for (const entry of (logs || []).slice(-50)) {
+      const idle = /waiting for next source refresh|no new event available/i.test(entry.message || "");
+      const prev = out[out.length - 1];
+      if (idle && prev && prev.agent === entry.agent && prev.idle) {
+        prev.repeat = (prev.repeat || 1) + 1;
+        prev.message = `${entry.agent} idle - repeated ${prev.repeat} cycles`;
+        prev.timestamp = entry.timestamp;
+      } else {
+        out.push({ ...entry, idle, repeat: 1 });
+      }
+    }
+    return out;
+  }
+
+  function renderAgentComms(logs) {
+    if (commsPaused) return;
+    latestComms = collapseIdle(logs || []);
+    const container = document.getElementById("agentComms");
+    if (!latestComms.length) {
+      container.innerHTML = `<div class="meta">No internal messages yet.</div>`;
+      return;
+    }
+
+    container.innerHTML = latestComms.slice(-50).reverse().map(entry => `
+      <div class="list-item">
+        <strong>${entry.agent || "System"}</strong>
+        <div>${entry.message || "No message."}</div>
+        <div class="meta">${entry.timestamp || ""}</div>
+      </div>
+    `).join("");
+  }
+
+  function renderDevInsights() {
+    const container = document.getElementById("devInsights");
+    if (!latestInsights.length) {
+      container.innerHTML = `<div class="meta">No raw insight metadata yet.</div>`;
+      return;
+    }
+
+    container.innerHTML = latestInsights.slice(-50).reverse().map(item => `
+      <div class="insight ${item.severity || "info"}">
+        <strong>${item.title || "Insight"}</strong>
+        <div>${item.summary || "No summary."}</div>
+        <div class="meta">pattern_type: ${item.pattern_type || "general"} | public_safe: ${String(item.public_safe)}</div>
+        <div class="meta">confidence: ${item.confidence || 0} | severity: ${item.severity || "info"}</div>
+        <div class="meta">source_context: ${item.source_context || "n/a"}</div>
+        <div class="meta">timestamp: ${item.timestamp || ""}</div>
+        ${(item.evidence || []).length ? `<ul>${item.evidence.map(line => `<li>${line}</li>`).join("")}</ul>` : ""}
+        ${item.suggested_action ? `<div class="meta">suggested_action: ${item.suggested_action}</div>` : ""}
+      </div>
+    `).join("");
+  }
+
+  function renderDevSourceHealth(payload) {
+    const sources = payload.sources || payload.source_health || {};
+    const entries = Object.entries(sources);
+    document.getElementById("devSourceHealth").innerHTML = entries.length ? entries.map(([name, info]) => `
+      <div class="list-item">
+        <strong>${name}</strong>
+        <div class="meta">status: ${info.status || "unknown"}</div>
+        <div class="meta">records returned: ${info.records_returned ?? 0}</div>
+        <div class="meta">candidate events: ${info.events_emitted ?? 0}</div>
+        <div class="meta">new queued: ${info.new_events_queued ?? 0}</div>
+        <div class="meta">duplicates skipped: ${info.duplicates_skipped ?? 0}</div>
+        <div class="meta">last checked: ${info.last_checked || "n/a"}</div>
+        <div class="meta">message: ${info.message || ""}</div>
+      </div>
+    `).join("") : `<div class="meta">No source health yet.</div>`;
+  }
+
+  async function loadSourceHealth() {
+    try {
+      const response = await fetch(`${API_BASE}/source-health`);
+      const data = await response.json();
+      renderDevSourceHealth(data);
+    } catch {
+      document.getElementById("devSourceHealth").innerHTML = `<div class="meta">Source health unavailable.</div>`;
+    }
+  }
+
+  async function loadInsights() {
+    try {
+      const response = await fetch(`${API_BASE}/insights`);
+      const data = await response.json();
+      latestInsights = data.insights || [];
+      renderDevInsights();
+    } catch {
+      document.getElementById("devInsights").innerHTML = `<div class="meta">Insights unavailable.</div>`;
+    }
+  }
+
+  async function loadAnalytics() {
+    try {
+      const response = await fetch(`${API_BASE}/analytics`);
+      const data = await response.json();
+      const typeRows = (data.events_by_type || []).map(row => `<li>${row.type}: ${row.count}</li>`).join("");
+      const sourceRows = (data.events_by_source || []).map(row => `<li>${row.source}: ${row.count}</li>`).join("");
+      const locations = (data.top_locations || []).map(row => `<li>${row.location}: ${row.count}</li>`).join("");
+      document.getElementById("devAnalytics").innerHTML = `
+        <div class="list-item"><strong>Total events:</strong> ${data.total_events || 0}</div>
+        <div class="list-item"><strong>Total alerts:</strong> ${data.total_alerts || 0}</div>
+        <div class="list-item"><strong>Duplicates skipped:</strong> ${data.duplicates_skipped || 0}</div>
+        <div class="list-item"><strong>Real vs simulated:</strong> real ${data.real_vs_simulated?.real || 0}, simulated ${data.real_vs_simulated?.simulated || 0}</div>
+        <div class="list-item"><strong>Events by type</strong><ul>${typeRows || "<li>None</li>"}</ul></div>
+        <div class="list-item"><strong>Events by source</strong><ul>${sourceRows || "<li>None</li>"}</ul></div>
+        <div class="list-item"><strong>Top locations</strong><ul>${locations || "<li>None</li>"}</ul></div>
+      `;
+    } catch {
+      document.getElementById("devAnalytics").innerHTML = `<div class="meta">Analytics unavailable.</div>`;
+    }
+  }
+
+  async function loadHistory() {
+    try {
+      const typeFilter = document.getElementById("typeFilter").value;
+      const sourceFilter = document.getElementById("sourceFilter").value;
+      const response = await fetch(`${API_BASE}/history`);
+      let rows = await response.json();
+      if (typeFilter) rows = rows.filter(row => row.type === typeFilter);
+      if (sourceFilter) rows = rows.filter(row => row.source === sourceFilter);
+
+      document.getElementById("devHistory").innerHTML = rows.length ? rows.slice(0, 50).map(row => `
+        <div class="list-item">
+          <strong>${String(row.type).toUpperCase()}</strong> - ${row.location}
+          <div>${row.text}</div>
+          <div class="meta">${row.source} • ${row.timestamp}</div>
+        </div>
+      `).join("") : `<div class="meta">No history matches current filters.</div>`;
+    } catch {
+      document.getElementById("devHistory").innerHTML = `<div class="meta">History unavailable.</div>`;
+    }
+  }
+
+  async function devAction(path, confirmFirst = false) {
+    if (!IS_LOCAL_FRONTEND) {
+      document.getElementById("devPanel").innerText = "Developer controls are disabled on non-local frontend.";
+      return;
+    }
+
+    if (confirmFirst && !confirm("Reset local runtime and database?")) return;
+
+    try {
+      const response = await fetch(`${API_BASE}${path}`, { method: "POST" });
+      const data = await response.json();
+      document.getElementById("devPanel").innerText = data.message || "Action finished.";
+      loadSourceHealth();
+      loadHistory();
+      loadAnalytics();
+      loadInsights();
+    } catch {
+      document.getElementById("devPanel").innerText = "Developer action failed.";
+    }
+  }
+
+  function pauseComms() {
+    commsPaused = true;
+    document.getElementById("commsState").innerText = "Log paused.";
+  }
+
+  function resumeComms() {
+    commsPaused = false;
+    document.getElementById("commsState").innerText = "Live updates active.";
+    renderAgentComms(latestComms);
+  }
+
+  function clearVisibleComms() {
+    latestComms = [];
+    document.getElementById("agentComms").innerHTML = `<div class="meta">Visible log cleared.</div>`;
+  }
+
+  function connectWebSocket() {
+    ws = new WebSocket(WS_URL);
+    ws.onopen = () => updateHeroStatus(true);
+    ws.onerror = () => updateHeroStatus(false);
+    ws.onclose = () => {
+      updateHeroStatus(false);
+      setTimeout(connectWebSocket, 5000);
+    };
+
+    ws.onmessage = (message) => {
+      const data = JSON.parse(message.data);
+      latestInsights = data.insights || latestInsights;
+      renderDevInsights();
+      renderAgentComms((data.agent_log || []).slice(-50));
+      renderDevSourceHealth({ sources: data.source_health || data.sources || {} });
+    };
+  }
+
+  if (!IS_LOCAL_FRONTEND) {
+    document.getElementById("developerControlsCard").style.display = "none";
+  }
+
+  setInterval(loadSourceHealth, 12000);
+  setInterval(loadHistory, 12000);
+  setInterval(loadAnalytics, 18000);
+  setInterval(loadInsights, 20000);
+
+  loadSourceHealth();
+  loadHistory();
+  loadAnalytics();
+  loadInsights();
+  connectWebSocket();
+  </script>
+</body>
+</html>

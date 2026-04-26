@@ -1,79 +1,239 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Town Warden v4</title>
+  <title>Town Warden - Public Dashboard</title>
   <style>
     :root {
-      --bg: #f2f6fb;
-      --card: #ffffff;
+      --bg: #eef3f9;
+      --surface: #ffffff;
       --text: #0f172a;
       --muted: #475569;
-      --border: #d5e2f0;
+      --border: #d4e1ef;
       --brand: #1d4ed8;
-      --ok: #1e40af;
-      --warn: #b45309;
-      --danger: #b91c1c;
+      --ok: #14532d;
+      --warn: #92400e;
+      --danger: #991b1b;
+      --soft: #f8fbff;
     }
+
     body {
       margin: 0;
+      padding: 20px;
+      font-family: Inter, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      font-family: Inter, Arial, sans-serif;
-      padding: 18px;
-      line-height: 1.45;
+      line-height: 1.5;
     }
-    .page { max-width: 1240px; margin: 0 auto; }
-    .topbar { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:16px; }
-    h1 { margin:0; font-size:34px; }
-    h2 { margin:0 0 10px; font-size:20px; }
-    h3 { margin:10px 0 6px; font-size:16px; }
-    .subtitle { color:var(--muted); }
-    .status-pill { border:1px solid #bfdbfe; background:#eff6ff; color:#1e3a8a; border-radius:999px; padding:8px 12px; font-weight:700; }
-    .mode-switch { display:flex; gap:8px; margin:8px 0 16px; }
-    .mode-btn { border:1px solid var(--border); background:#fff; border-radius:10px; padding:8px 12px; cursor:pointer; font-weight:700; }
-    .mode-btn.active { background:var(--brand); border-color:var(--brand); color:#fff; }
 
-    .card, .panel { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:14px; }
-    .hero-note { font-size:13px; color:#334155; background:#f8fafc; border-radius:10px; border:1px solid var(--border); padding:10px; }
-    .grid-2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-    .grid-3 { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
-    .summary-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; }
-    .summary-card { border:1px solid var(--border); border-radius:10px; padding:10px; background:#f8fbff; }
-    .summary-label { color:var(--muted); font-size:12px; text-transform:uppercase; }
-    .summary-value { font-size:22px; font-weight:700; }
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
 
-    .badge { display:inline-block; border-radius:999px; padding:2px 8px; font-size:11px; font-weight:700; text-transform:uppercase; }
-    .badge.low { background:#dbeafe; color:#1e40af; }
-    .badge.medium { background:#fef3c7; color:#92400e; }
-    .badge.high, .badge.critical, .badge.error, .badge.danger { background:#fee2e2; color:#991b1b; }
-    .badge.info { background:#e2e8f0; color:#334155; }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 14px;
+    }
 
-    .map-wrap { border:1px solid var(--border); border-radius:12px; padding:10px; background:#f8fbff; }
-    .zone { border:1px solid var(--border); border-left:8px solid #60a5fa; border-radius:10px; padding:10px; margin-bottom:8px; background:#fff; }
-    .zone.medium { border-left-color:#f59e0b; }
-    .zone.high, .zone.critical { border-left-color:#ef4444; }
+    h1 {
+      margin: 0;
+      font-size: 2rem;
+    }
 
-    .list-item { border:1px solid var(--border); border-radius:10px; padding:10px; margin-bottom:8px; background:#fff; }
-    .meta { color:var(--muted); font-size:13px; }
-    .hint { color:#334155; font-size:13px; }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 1.35rem;
+    }
 
-    .insight { border:1px solid var(--border); border-left:6px solid #60a5fa; border-radius:10px; padding:10px; margin-bottom:9px; background:#fff; }
-    .insight.warning { border-left-color:#f59e0b; }
-    .insight.high, .insight.critical, .insight.danger { border-left-color:#ef4444; }
+    h3 {
+      margin: 8px 0;
+      font-size: 1.05rem;
+    }
 
-    .dev-only { display:none; }
-    .controls-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
-    button { border:none; background:var(--brand); color:#fff; border-radius:10px; padding:8px 12px; cursor:pointer; font-weight:700; }
-    button.secondary { background:#334155; }
-    button.danger { background:#b91c1c; }
-    select { border:1px solid var(--border); border-radius:10px; padding:8px; background:#fff; }
+    .subtitle,
+    .meta,
+    .hint {
+      color: var(--muted);
+    }
 
-    @media (max-width: 1050px) {
-      .summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
-      .grid-2, .grid-3 { grid-template-columns:1fr; }
-      .topbar { flex-direction:column; }
+    .status-pill {
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      color: #1e3a8a;
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .card,
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 14px;
+      background: var(--surface);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .summary-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--soft);
+      padding: 10px;
+    }
+
+    .summary-label {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.03em;
+    }
+
+    .summary-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .hero-note {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.92rem;
+      color: #334155;
+    }
+
+    .coverage-note {
+      margin-top: 8px;
+      border-left: 4px solid #93c5fd;
+      padding-left: 10px;
+      font-size: 0.93rem;
+      color: #1e3a8a;
+    }
+
+    .insight {
+      border: 1px solid var(--border);
+      border-left: 6px solid #60a5fa;
+      border-radius: 10px;
+      padding: 12px;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+
+    .insight.warning {
+      border-left-color: #f59e0b;
+    }
+
+    .insight.high,
+    .insight.critical,
+    .insight.danger,
+    .insight.error {
+      border-left-color: #ef4444;
+    }
+
+    .badge {
+      display: inline-block;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      text-transform: uppercase;
+      margin-left: 8px;
+    }
+
+    .badge.low {
+      background: #dcfce7;
+      color: var(--ok);
+    }
+
+    .badge.medium {
+      background: #fef3c7;
+      color: var(--warn);
+    }
+
+    .badge.high,
+    .badge.critical {
+      background: #fee2e2;
+      color: var(--danger);
+    }
+
+    .grid-2 {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .list-item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px;
+      margin-bottom: 8px;
+    }
+
+    .map-wrap {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--soft);
+      padding: 10px;
+    }
+
+    .zone {
+      border: 1px solid var(--border);
+      border-left: 8px solid #60a5fa;
+      border-radius: 10px;
+      padding: 10px;
+      margin-bottom: 8px;
+      background: #fff;
+    }
+
+    .zone.medium {
+      border-left-color: #f59e0b;
+    }
+
+    .zone.high,
+    .zone.critical {
+      border-left-color: #ef4444;
+    }
+
+    .footer-link {
+      margin-top: 8px;
+      font-size: 0.9rem;
+    }
+
+    .footer-link a {
+      color: #1d4ed8;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .footer-link a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 980px) {
+      .topbar {
+        flex-direction: column;
+      }
+
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -81,491 +241,229 @@
   <div class="page">
     <div class="topbar">
       <div>
-        <h1>Town Warden LIVE</h1>
-        <div class="subtitle">Blackpool civic intelligence prototype</div>
+        <h1>Town Warden</h1>
+        <div class="subtitle">Public civic status dashboard for Blackpool</div>
       </div>
-      <div class="status-pill" id="statusPill">Connecting...</div>
+      <div id="statusPill" class="status-pill">Connecting...</div>
     </div>
 
-    <div class="mode-switch">
-      <button class="mode-btn" id="publicModeBtn" onclick="setMode('public')">Public Dashboard</button>
-      <button class="mode-btn" id="developerModeBtn" onclick="setMode('developer')">Developer Dashboard</button>
+    <div class="card">
+      <h2>Public Status</h2>
+      <div class="meta">Backend connection: <strong id="heroConnection">Connecting...</strong></div>
+      <div class="meta">Last updated: <strong id="heroUpdated">--</strong></div>
+      <div class="hero-note">Experimental civic intelligence prototype. Not official public authority advice.</div>
+      <div class="coverage-note">Patterns may reflect current source coverage. Police.uk and Open-Meteo are active; Street Manager roadworks data is pending approval.</div>
+      <div class="footer-link"><a href="./dev.html">Developer dashboard</a> (for diagnostics and internal metadata)</div>
     </div>
 
-    <div id="publicDashboard">
-      <div class="card">
-        <h2>Public Status</h2>
-        <div class="grid-2">
-          <div>
-            <div class="meta">Backend connection: <strong id="heroConnection">Connecting...</strong></div>
-            <div class="meta">Last updated: <strong id="heroUpdated">--</strong></div>
-          </div>
-          <div class="hero-note">Experimental civic intelligence prototype. Not official public authority advice.</div>
-        </div>
-      </div>
+    <div class="summary-grid">
+      <div class="summary-card"><div class="summary-label">Town health</div><div class="summary-value" id="sumHealth">--</div></div>
+      <div class="summary-card"><div class="summary-label">Sources active</div><div class="summary-value" id="sumSources">--</div></div>
+      <div class="summary-card"><div class="summary-label">Signals processed</div><div class="summary-value" id="sumEvents">--</div></div>
+      <div class="summary-card"><div class="summary-label">Risk zones</div><div class="summary-value" id="sumRiskZones">--</div></div>
+      <div class="summary-card"><div class="summary-label">Insights</div><div class="summary-value" id="sumInsights">--</div></div>
+    </div>
 
-      <div class="summary-grid">
-        <div class="summary-card"><div class="summary-label">Town health</div><div class="summary-value" id="sumHealth">--</div></div>
-        <div class="summary-card"><div class="summary-label">Live sources active</div><div class="summary-value" id="sumSources">--</div></div>
-        <div class="summary-card"><div class="summary-label">Events processed</div><div class="summary-value" id="sumEvents">--</div></div>
-        <div class="summary-card"><div class="summary-label">Current risk zones</div><div class="summary-value" id="sumRiskZones">--</div></div>
-        <div class="summary-card"><div class="summary-label">Insight count</div><div class="summary-value" id="sumInsights">--</div></div>
-        <div class="summary-card"><div class="summary-label">Street Manager</div><div class="summary-value" id="sumStreetMgr">--</div></div>
-      </div>
+    <div class="panel">
+      <h2>Agent Insights</h2>
+      <div class="hero-note">Insights are experimental and source-limited. They are not complete coverage of all town activity and should be treated as early signals, not official direction.</div>
+      <div id="publicInsights"><div class="meta">No source-limited insights available yet.</div></div>
+    </div>
 
-      <div class="card">
-        <h2>Blackpool Risk Overview</h2>
-        <div class="grid-2">
-          <div id="riskList"><div class="meta">No accumulated risk currently.</div></div>
-          <div class="map-wrap" id="riskMapZones"></div>
-        </div>
-      </div>
-
+    <div class="card">
+      <h2>Blackpool Risk Overview</h2>
       <div class="grid-2">
-        <div class="panel">
-          <h2>Latest Civic Signals</h2>
-          <div id="latestSignals"><div class="meta">No fresh unseen events. The system is waiting for the next source refresh.</div></div>
-        </div>
-        <div class="panel">
-          <h2>Source Status</h2>
-          <div id="publicSourceStatus"><div class="meta">Loading source status...</div></div>
-        </div>
+        <div id="riskList"><div class="meta">No accumulated risk currently.</div></div>
+        <div id="riskMapZones" class="map-wrap"></div>
       </div>
+    </div>
 
+    <div class="grid-2">
       <div class="panel">
-        <h2>Agent Insights</h2>
-        <div class="hero-note">Insights are rule-based, source-limited, and experimental.</div>
-        <div id="publicInsights"><div class="meta">No source-limited insights available yet.</div></div>
+        <h2>Latest Civic Signals</h2>
+        <div id="latestSignals"><div class="meta">No fresh unseen events. Waiting for next source refresh.</div></div>
       </div>
-    </div>
-
-    <div id="developerDashboard" class="dev-only">
-      <div class="grid-2">
-        <div class="card">
-          <h2>Raw Source Health</h2>
-          <button onclick="loadSourceHealth()">Refresh Source Health</button>
-          <div id="devSourceHealth" class="meta">Waiting for source diagnostics.</div>
-        </div>
-        <div class="card">
-          <h2>Analytics Intelligence</h2>
-          <button onclick="loadAnalytics()">Refresh Analytics</button>
-          <div id="devAnalytics" class="meta">Waiting for analytics intelligence.</div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>History Intelligence</h2>
-        <div class="controls-row">
-          <button onclick="loadHistory()">Refresh History</button>
-          <select id="typeFilter" onchange="loadHistory()">
-            <option value="">All Types</option>
-            <option value="incident">Incident</option>
-            <option value="infrastructure">Infrastructure</option>
-            <option value="waste">Waste</option>
-            <option value="transport">Transport</option>
-            <option value="weather">Weather</option>
-          </select>
-          <select id="sourceFilter" onchange="loadHistory()">
-            <option value="">All Sources</option>
-            <option value="Police.uk">Police.uk</option>
-            <option value="Open-Meteo">Open-Meteo</option>
-            <option value="Street Manager">Street Manager</option>
-            <option value="Simulation">Simulation</option>
-          </select>
-        </div>
-        <div id="devHistory" class="meta">Waiting for history intelligence.</div>
-      </div>
-
-      <div class="grid-2">
-        <div class="panel">
-          <h2>Agent Comms Log</h2>
-          <div class="controls-row">
-            <button class="secondary" onclick="pauseComms()">Pause</button>
-            <button class="secondary" onclick="resumeComms()">Resume</button>
-            <button class="secondary" onclick="clearVisibleComms()">Clear Visible Log</button>
-          </div>
-          <div class="meta" id="commsState">Live updates active.</div>
-          <div id="agentComms"><div class="meta">No internal messages yet.</div></div>
-        </div>
-        <div class="panel">
-          <h2>Raw Agent Insights</h2>
-          <div id="devInsights"><div class="meta">Waiting for raw insight metadata.</div></div>
-        </div>
-      </div>
-
-      <div class="card dev-only" id="developerControlsCard">
-        <h2>Developer Controls</h2>
-        <div class="controls-row">
-          <button onclick="devAction('/dev/force-refresh')">Force Source Refresh</button>
-          <button class="secondary" onclick="devAction('/dev/clear-live-feed')">Clear Live Feed</button>
-          <button class="secondary" onclick="devAction('/dev/clear-risk-map')">Clear Risk Map</button>
-          <button class="danger" onclick="devAction('/dev/reset-database', true)">Reset Database</button>
-        </div>
-        <div id="devPanel" class="meta">Use locally for diagnostics.</div>
+      <div class="panel">
+        <h2>Source Status</h2>
+        <div id="publicSourceStatus"><div class="meta">Loading source status...</div></div>
       </div>
     </div>
   </div>
 
-<script>
-const IS_LOCAL_FRONTEND = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-const API_BASE = IS_LOCAL_FRONTEND ? "http://127.0.0.1:8000" : "https://town-warden.onrender.com";
-const WS_URL = IS_LOCAL_FRONTEND ? "ws://127.0.0.1:8000/ws" : "wss://town-warden.onrender.com/ws";
-const MODE_KEY = "town_warden_dashboard_mode";
-const ZONES = ["North Shore", "Town Centre", "South Shore", "Blackpool South"];
+  <script>
+  // Public/developer separation note:
+  // This page intentionally exposes only public-safe civic summaries.
+  // Developer controls, raw logs, and internal metadata are moved to frontend/dev.html.
 
-let ws = null;
-let latestInsights = [];
-let latestComms = [];
-let latestEvents = [];
-let commsPaused = false;
-let latestRuntime = {};
+  const IS_LOCAL_FRONTEND = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+  const API_BASE = IS_LOCAL_FRONTEND ? "http://127.0.0.1:8000" : "https://town-warden.onrender.com";
+  const WS_URL = IS_LOCAL_FRONTEND ? "ws://127.0.0.1:8000/ws" : "wss://town-warden.onrender.com/ws";
+  const ZONES = ["North Shore", "Town Centre", "South Shore", "Blackpool South"];
 
-function zoneRiskLevel(value) {
-  if (value >= 75) return { key: "critical", label: "Critical", summary: "Critical" };
-  if (value >= 45) return { key: "high", label: "Elevated", summary: "Elevated" };
-  if (value >= 20) return { key: "medium", label: "Watching", summary: "Watching" };
-  return { key: "low", label: "Stable", summary: "Stable" };
-}
+  let ws = null;
+  let latestInsights = [];
+  let latestEvents = [];
 
-function setMode(mode) {
-  const publicEl = document.getElementById("publicDashboard");
-  const devEl = document.getElementById("developerDashboard");
-  const pubBtn = document.getElementById("publicModeBtn");
-  const devBtn = document.getElementById("developerModeBtn");
-  const isDev = mode === "developer";
-
-  publicEl.style.display = isDev ? "none" : "block";
-  devEl.style.display = isDev ? "block" : "none";
-  pubBtn.classList.toggle("active", !isDev);
-  devBtn.classList.toggle("active", isDev);
-
-  localStorage.setItem(MODE_KEY, mode);
-}
-
-function initMode() {
-  const stored = localStorage.getItem(MODE_KEY);
-  if (IS_LOCAL_FRONTEND) {
-    setMode(stored || "developer");
-  } else {
-    setMode("public");
+  function zoneRiskLevel(value) {
+    if (value >= 75) return { key: "critical", label: "Critical", summary: "Critical" };
+    if (value >= 45) return { key: "high", label: "Elevated", summary: "Elevated" };
+    if (value >= 20) return { key: "medium", label: "Watching", summary: "Watching" };
+    return { key: "low", label: "Stable", summary: "Stable" };
   }
 
-  if (!IS_LOCAL_FRONTEND) {
-    document.getElementById("developerControlsCard").style.display = "none";
-  }
-}
-
-function updateHeroStatus(connected) {
-  document.getElementById("heroConnection").innerText = connected ? "Connected" : "Disconnected";
-  document.getElementById("statusPill").innerText = connected ? "Backend Connected" : "Backend Disconnected";
-  document.getElementById("heroUpdated").innerText = new Date().toLocaleTimeString();
-}
-
-function updateSummary(data, sourceHealth) {
-  const sources = sourceHealth || data.source_health || data.sources || {};
-  const publicSources = ["Police.uk", "Open-Meteo", "Street Manager"];
-  const connected = publicSources.filter(name => {
-    const status = String(sources[name]?.status || "").toLowerCase();
-    return ["connected", "checking", "enabled", "pending"].includes(status);
-  }).length;
-
-  document.getElementById("sumHealth").innerText = data.health !== undefined ? `${data.health}/100` : "--";
-  document.getElementById("sumSources").innerText = `${connected}/3`;
-  document.getElementById("sumEvents").innerText = data.live_history_count ?? data.history_count ?? "--";
-  document.getElementById("sumRiskZones").innerText = Object.keys(data.risk_map || {}).length;
-  document.getElementById("sumInsights").innerText = data.insight_count ?? data.count ?? latestInsights.length;
-  document.getElementById("sumStreetMgr").innerText = "Ready";
-}
-
-function renderRiskPanels(riskMap) {
-  const map = riskMap || {};
-  const list = Object.entries(map).sort((a, b) => b[1] - a[1]);
-
-  document.getElementById("riskList").innerHTML = list.length ? list.map(([zone, score]) => {
-    const level = zoneRiskLevel(score);
-    return `<div class="list-item"><strong>${zone}</strong> <span class="badge ${level.key}">${level.label}</span><div class="meta">Risk score: ${Math.round(score)}</div></div>`;
-  }).join("") : `<div class="meta">No accumulated risk currently.</div>`;
-
-  document.getElementById("riskMapZones").innerHTML = ZONES.map(zone => {
-    const score = map[zone] || 0;
-    const level = zoneRiskLevel(score);
-    return `<div class="zone ${level.key}"><strong>${zone}</strong><div class="meta">${level.summary}</div></div>`;
-  }).join("");
-}
-
-function renderLatestSignals() {
-  const container = document.getElementById("latestSignals");
-  if (!latestEvents.length) {
-    container.innerHTML = `<div class="meta">No fresh unseen events. The system is waiting for the next source refresh.</div>`;
-    return;
+  function updateHeroStatus(connected) {
+    document.getElementById("heroConnection").innerText = connected ? "Connected" : "Disconnected";
+    document.getElementById("statusPill").innerText = connected ? "Backend Connected" : "Backend Disconnected";
+    document.getElementById("heroUpdated").innerText = new Date().toLocaleTimeString();
   }
 
-  container.innerHTML = latestEvents.slice(0, 8).map(event => `
-    <div class="list-item">
-      <strong>${String(event.type || "signal").toUpperCase()}</strong> - ${event.location || "Unknown"}
-      <div>${event.text || "No signal summary."}</div>
-      <div class="meta">${event.source || "Unknown source"} | ${event.timestamp || ""}</div>
-    </div>
-  `).join("");
-}
+  function updateSummary(data, sourceHealth) {
+    const sources = sourceHealth || data.source_health || data.sources || {};
+    const publicSources = ["Police.uk", "Open-Meteo", "Street Manager"];
+    const connected = publicSources.filter(name => {
+      const status = String(sources[name]?.status || "").toLowerCase();
+      return ["connected", "checking", "enabled", "pending"].includes(status);
+    }).length;
 
-function renderPublicSourceStatus(sourceHealth) {
-  const sources = sourceHealth || {};
-  const simple = ["Police.uk", "Open-Meteo", "Street Manager"].map(name => {
-    const info = sources[name] || {};
-    let note = info.message || "No update yet.";
-    if (name === "Street Manager") {
-      note = "Webhook endpoints ready. Awaiting external approval/notifications.";
+    document.getElementById("sumHealth").innerText = data.health !== undefined ? `${data.health}/100` : "--";
+    document.getElementById("sumSources").innerText = `${connected}/3`;
+    document.getElementById("sumEvents").innerText = data.live_history_count ?? data.history_count ?? "--";
+    document.getElementById("sumRiskZones").innerText = Object.keys(data.risk_map || {}).length;
+    document.getElementById("sumInsights").innerText = data.insight_count ?? data.count ?? latestInsights.length;
+  }
+
+  function renderRiskPanels(riskMap) {
+    const map = riskMap || {};
+    const list = Object.entries(map).sort((a, b) => b[1] - a[1]);
+
+    document.getElementById("riskList").innerHTML = list.length ? list.map(([zone, score]) => {
+      const level = zoneRiskLevel(score);
+      return `<div class="list-item"><strong>${zone}</strong><span class="badge ${level.key}">${level.label}</span><div class="meta">Risk score: ${Math.round(score)}</div></div>`;
+    }).join("") : `<div class="meta">No accumulated risk currently.</div>`;
+
+    document.getElementById("riskMapZones").innerHTML = ZONES.map(zone => {
+      const score = map[zone] || 0;
+      const level = zoneRiskLevel(score);
+      return `<div class="zone ${level.key}"><strong>${zone}</strong><div class="meta">${level.summary}</div></div>`;
+    }).join("");
+  }
+
+  function renderLatestSignals() {
+    const container = document.getElementById("latestSignals");
+    if (!latestEvents.length) {
+      container.innerHTML = `<div class="meta">No fresh unseen events. Waiting for next source refresh.</div>`;
+      return;
     }
-    return `<div class="list-item"><strong>${name}</strong><div class="meta">${note}</div></div>`;
-  }).join("");
 
-  document.getElementById("publicSourceStatus").innerHTML = `${simple}<div class="list-item"><strong>Simulation</strong><div class="meta">Simulation disabled</div></div>`;
-}
-
-function renderPublicInsights() {
-  const container = document.getElementById("publicInsights");
-  if (!latestInsights.length) {
-    container.innerHTML = `<div class="meta">No source-limited insights available yet.</div>`;
-    return;
-  }
-
-  container.innerHTML = latestInsights.slice(-8).reverse().map(item => `
-    <div class="insight ${item.severity || "info"}">
-      <h3>${item.title || "Insight"}</h3>
-      <div>${item.summary || "No summary."}</div>
-      ${item.source_context ? `<div class="hint">Source/context: ${item.source_context}</div>` : ""}
-      <div class="meta">Confidence: ${Math.round((item.confidence || 0) * 100)}% | Severity: ${item.severity || "info"}</div>
-      ${(item.evidence || []).length ? `<ul>${item.evidence.map(e => `<li>${e}</li>`).join("")}</ul>` : ""}
-      ${item.suggested_action ? `<div class="hint">Suggested action: ${item.suggested_action}</div>` : ""}
-    </div>
-  `).join("");
-}
-
-function collapseIdle(logs) {
-  const out = [];
-  for (const entry of (logs || []).slice(-50)) {
-    const idle = /waiting for next source refresh|no new event available/i.test(entry.message || "");
-    const prev = out[out.length - 1];
-    if (idle && prev && prev.agent === entry.agent && prev.idle) {
-      prev.repeat = (prev.repeat || 1) + 1;
-      prev.message = `${entry.agent} idle - repeated ${prev.repeat} cycles`;
-      prev.timestamp = entry.timestamp;
-    } else {
-      out.push({ ...entry, idle, repeat: 1 });
-    }
-  }
-  return out;
-}
-
-function renderAgentComms(logs) {
-  if (commsPaused) return;
-  latestComms = collapseIdle(logs || []);
-  const container = document.getElementById("agentComms");
-  if (!latestComms.length) {
-    container.innerHTML = `<div class="meta">No internal messages yet.</div>`;
-    return;
-  }
-  container.innerHTML = latestComms.slice(-50).reverse().map(entry => `
-    <div class="list-item">
-      <strong>${entry.agent || "System"}</strong>
-      <div>${entry.message || "No message."}</div>
-      <div class="meta">${entry.timestamp || ""}</div>
-    </div>
-  `).join("");
-}
-
-function renderDevInsights() {
-  const container = document.getElementById("devInsights");
-  if (!latestInsights.length) {
-    container.innerHTML = `<div class="meta">No raw insight metadata yet.</div>`;
-    return;
-  }
-  container.innerHTML = latestInsights.slice(-50).reverse().map(item => `
-    <div class="insight ${item.severity || "info"}">
-      <strong>${item.title || "Insight"}</strong>
-      <div>${item.summary || "No summary."}</div>
-      <div class="meta">pattern_type: ${item.pattern_type || "general"} | public_safe: ${String(item.public_safe)}</div>
-      <div class="meta">confidence: ${item.confidence || 0} | severity: ${item.severity || "info"}</div>
-      <div class="meta">source_context: ${item.source_context || "n/a"}</div>
-      <div class="meta">timestamp: ${item.timestamp || ""}</div>
-      ${(item.evidence || []).length ? `<ul>${item.evidence.map(line => `<li>${line}</li>`).join("")}</ul>` : ""}
-      ${item.suggested_action ? `<div class="meta">suggested_action: ${item.suggested_action}</div>` : ""}
-    </div>
-  `).join("");
-}
-
-function renderDevSourceHealth(payload) {
-  const sources = payload.sources || payload.source_health || {};
-  const entries = Object.entries(sources);
-  document.getElementById("devSourceHealth").innerHTML = entries.length ? entries.map(([name, info]) => `
-    <div class="list-item">
-      <strong>${name}</strong>
-      <div class="meta">status: ${info.status || "unknown"}</div>
-      <div class="meta">records returned: ${info.records_returned ?? 0}</div>
-      <div class="meta">candidate events: ${info.events_emitted ?? 0}</div>
-      <div class="meta">new queued: ${info.new_events_queued ?? 0}</div>
-      <div class="meta">duplicates skipped: ${info.duplicates_skipped ?? 0}</div>
-      <div class="meta">last checked: ${info.last_checked || "n/a"}</div>
-      <div class="meta">message: ${info.message || ""}</div>
-    </div>
-  `).join("") : `<div class="meta">No source health yet.</div>`;
-}
-
-async function loadSourceHealth() {
-  try {
-    const response = await fetch(`${API_BASE}/source-health`);
-    const data = await response.json();
-    renderDevSourceHealth(data);
-    renderPublicSourceStatus(data.sources || data.source_health || {});
-    updateSummary(latestRuntime, data.sources || data.source_health || {});
-  } catch {
-    document.getElementById("devSourceHealth").innerHTML = `<div class="meta">Source health unavailable.</div>`;
-  }
-}
-
-async function loadInsights() {
-  try {
-    const response = await fetch(`${API_BASE}/insights`);
-    const data = await response.json();
-    latestInsights = data.insights || [];
-    renderPublicInsights();
-    renderDevInsights();
-    document.getElementById("sumInsights").innerText = data.count ?? latestInsights.length;
-  } catch {
-    document.getElementById("publicInsights").innerHTML = `<div class="meta">Insights unavailable.</div>`;
-  }
-}
-
-async function loadAnalytics() {
-  try {
-    const response = await fetch(`${API_BASE}/analytics`);
-    const data = await response.json();
-    const typeRows = (data.events_by_type || []).map(row => `<li>${row.type}: ${row.count}</li>`).join("");
-    const sourceRows = (data.events_by_source || []).map(row => `<li>${row.source}: ${row.count}</li>`).join("");
-    const locations = (data.top_locations || []).map(row => `<li>${row.location}: ${row.count}</li>`).join("");
-    document.getElementById("devAnalytics").innerHTML = `
-      <div class="list-item"><strong>Total events:</strong> ${data.total_events || 0}</div>
-      <div class="list-item"><strong>Total alerts:</strong> ${data.total_alerts || 0}</div>
-      <div class="list-item"><strong>Duplicates skipped:</strong> ${data.duplicates_skipped || 0}</div>
-      <div class="list-item"><strong>Real vs simulated:</strong> real ${data.real_vs_simulated?.real || 0}, simulated ${data.real_vs_simulated?.simulated || 0}</div>
-      <div class="list-item"><strong>Events by type</strong><ul>${typeRows || "<li>None</li>"}</ul></div>
-      <div class="list-item"><strong>Events by source</strong><ul>${sourceRows || "<li>None</li>"}</ul></div>
-      <div class="list-item"><strong>Top locations</strong><ul>${locations || "<li>None</li>"}</ul></div>
-    `;
-  } catch {
-    document.getElementById("devAnalytics").innerHTML = `<div class="meta">Analytics unavailable.</div>`;
-  }
-}
-
-async function loadHistory() {
-  try {
-    const typeFilter = document.getElementById("typeFilter").value;
-    const sourceFilter = document.getElementById("sourceFilter").value;
-    const response = await fetch(`${API_BASE}/history`);
-    let rows = await response.json();
-    if (typeFilter) rows = rows.filter(row => row.type === typeFilter);
-    if (sourceFilter) rows = rows.filter(row => row.source === sourceFilter);
-
-    document.getElementById("devHistory").innerHTML = rows.length ? rows.slice(0, 50).map(row => `
+    container.innerHTML = latestEvents.slice(0, 8).map(event => `
       <div class="list-item">
-        <strong>${String(row.type).toUpperCase()}</strong> - ${row.location}
-        <div>${row.text}</div>
-        <div class="meta">${row.source} | ${row.timestamp}</div>
+        <strong>${String(event.type || "signal").toUpperCase()}</strong> - ${event.location || "Unknown"}
+        <div>${event.text || "No signal summary."}</div>
+        <div class="meta">${event.source || "Unknown source"} • ${event.timestamp || ""}</div>
       </div>
-    `).join("") : `<div class="meta">No history matches current filters.</div>`;
-  } catch {
-    document.getElementById("devHistory").innerHTML = `<div class="meta">History unavailable.</div>`;
+    `).join("");
   }
-}
 
-async function loadRuntimeStatus() {
-  try {
-    const response = await fetch(`${API_BASE}/runtime-status`);
-    latestRuntime = await response.json();
-    updateSummary(latestRuntime, null);
-    renderRiskPanels(latestRuntime.risk_map || {});
-  } catch {
-    latestRuntime = {};
+  function renderPublicSourceStatus(sourceHealth) {
+    const sources = sourceHealth || {};
+    const simple = ["Police.uk", "Open-Meteo", "Street Manager"].map(name => {
+      const info = sources[name] || {};
+      let note = info.message || "No update yet.";
+      if (name === "Street Manager") {
+        note = "Webhook endpoints ready. Awaiting external approval/notifications.";
+      }
+      return `<div class="list-item"><strong>${name}</strong><div class="meta">${note}</div></div>`;
+    }).join("");
+
+    document.getElementById("publicSourceStatus").innerHTML = `${simple}<div class="list-item"><strong>Simulation</strong><div class="meta">Simulation disabled</div></div>`;
   }
-}
 
-async function devAction(path, confirmFirst = false) {
-  if (!IS_LOCAL_FRONTEND) {
-    document.getElementById("devPanel").innerHTML = "Developer controls are disabled on public frontend.";
-    return;
-  }
-  if (confirmFirst && !confirm("Reset local runtime and database?")) return;
-
-  try {
-    const response = await fetch(`${API_BASE}${path}`, { method: "POST" });
-    const data = await response.json();
-    document.getElementById("devPanel").innerText = data.message || "Action finished.";
-    loadRuntimeStatus();
-    loadSourceHealth();
-    loadHistory();
-    loadAnalytics();
-  } catch {
-    document.getElementById("devPanel").innerText = "Developer action failed.";
-  }
-}
-
-function pauseComms() {
-  commsPaused = true;
-  document.getElementById("commsState").innerText = "Log paused.";
-}
-function resumeComms() {
-  commsPaused = false;
-  document.getElementById("commsState").innerText = "Live updates active.";
-  renderAgentComms(latestComms);
-}
-function clearVisibleComms() {
-  latestComms = [];
-  document.getElementById("agentComms").innerHTML = `<div class="meta">Visible log cleared.</div>`;
-}
-
-function connectWebSocket() {
-  ws = new WebSocket(WS_URL);
-  ws.onopen = () => updateHeroStatus(true);
-  ws.onerror = () => updateHeroStatus(false);
-  ws.onclose = () => {
-    updateHeroStatus(false);
-    setTimeout(connectWebSocket, 5000);
-  };
-
-  ws.onmessage = (message) => {
-    const data = JSON.parse(message.data);
-    latestRuntime = data;
-    updateSummary(data, data.source_health || data.sources || {});
-    renderRiskPanels(data.risk_map || {});
-
-    if (data.event && data.event.type !== "waiting") {
-      latestEvents.unshift(data.event);
-      latestEvents = latestEvents.slice(0, 8);
+  function renderPublicInsights() {
+    const container = document.getElementById("publicInsights");
+    if (!latestInsights.length) {
+      container.innerHTML = `<div class="meta">No source-limited insights available yet.</div>`;
+      return;
     }
-    renderLatestSignals();
-    latestInsights = data.insights || latestInsights;
-    renderPublicInsights();
-    renderDevInsights();
-    renderAgentComms((data.agent_log || []).slice(-50));
-    renderPublicSourceStatus(data.source_health || data.sources || {});
-    renderDevSourceHealth({ sources: data.source_health || data.sources || {} });
-  };
-}
 
-setInterval(loadRuntimeStatus, 12000);
-setInterval(loadSourceHealth, 12000);
-setInterval(loadHistory, 12000);
-setInterval(loadAnalytics, 18000);
-setInterval(loadInsights, 20000);
+    container.innerHTML = latestInsights.slice(-10).reverse().map(item => `
+      <div class="insight ${item.severity || "info"}">
+        <h3>${item.title || "Insight"}</h3>
+        <div>${item.summary || "No summary."}</div>
+        ${item.source_context ? `<div class="hint">Source context: ${item.source_context}</div>` : ""}
+        <div class="meta">Confidence: ${Math.round((item.confidence || 0) * 100)}% • Severity: ${item.severity || "info"}</div>
+        ${(item.evidence || []).length ? `<ul>${item.evidence.map(e => `<li>${e}</li>`).join("")}</ul>` : ""}
+        <div class="hero-note">Caution: This is an automated pattern signal, not an official instruction or complete townwide picture.</div>
+      </div>
+    `).join("");
+  }
 
-initMode();
-loadRuntimeStatus();
-loadSourceHealth();
-loadHistory();
-loadAnalytics();
-loadInsights();
-connectWebSocket();
-</script>
+  async function loadSourceHealth() {
+    try {
+      const response = await fetch(`${API_BASE}/source-health`);
+      const data = await response.json();
+      renderPublicSourceStatus(data.sources || data.source_health || {});
+    } catch {
+      document.getElementById("publicSourceStatus").innerHTML = `<div class="meta">Source status unavailable.</div>`;
+    }
+  }
+
+  async function loadInsights() {
+    try {
+      const response = await fetch(`${API_BASE}/insights`);
+      const data = await response.json();
+      latestInsights = data.insights || [];
+      renderPublicInsights();
+      document.getElementById("sumInsights").innerText = data.count ?? latestInsights.length;
+    } catch {
+      document.getElementById("publicInsights").innerHTML = `<div class="meta">Insights unavailable.</div>`;
+    }
+  }
+
+  async function loadRuntimeStatus() {
+    try {
+      const response = await fetch(`${API_BASE}/runtime-status`);
+      const data = await response.json();
+      updateSummary(data, data.source_health || data.sources || {});
+      renderRiskPanels(data.risk_map || {});
+    } catch {
+      updateSummary({}, {});
+    }
+  }
+
+  function connectWebSocket() {
+    ws = new WebSocket(WS_URL);
+    ws.onopen = () => updateHeroStatus(true);
+    ws.onerror = () => updateHeroStatus(false);
+    ws.onclose = () => {
+      updateHeroStatus(false);
+      setTimeout(connectWebSocket, 5000);
+    };
+
+    ws.onmessage = (message) => {
+      const data = JSON.parse(message.data);
+      updateSummary(data, data.source_health || data.sources || {});
+      renderRiskPanels(data.risk_map || {});
+
+      if (data.event && data.event.type !== "waiting") {
+        latestEvents.unshift(data.event);
+        latestEvents = latestEvents.slice(0, 8);
+      }
+
+      latestInsights = data.insights || latestInsights;
+      renderLatestSignals();
+      renderPublicInsights();
+      renderPublicSourceStatus(data.source_health || data.sources || {});
+    };
+  }
+
+  setInterval(loadRuntimeStatus, 12000);
+  setInterval(loadSourceHealth, 12000);
+  setInterval(loadInsights, 20000);
+
+  loadRuntimeStatus();
+  loadSourceHealth();
+  loadInsights();
+  connectWebSocket();
+  </script>
 </body>
 </html>

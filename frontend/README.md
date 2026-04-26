@@ -1,6 +1,9 @@
 # Frontend
 
-The frontend is a single static HTML dashboard served locally with Python's built-in HTTP server.
+The frontend is static HTML with no build step:
+
+- `index.html` -> public civic dashboard (safe summaries only)
+- `dev.html` -> developer diagnostics dashboard (raw logs/metadata and local-only controls)
 
 ## Run
 
@@ -13,6 +16,18 @@ Open:
 
 ```text
 http://localhost:3000
+```
+
+Public dashboard:
+
+```text
+http://localhost:3000/index.html
+```
+
+Developer dashboard:
+
+```text
+http://localhost:3000/dev.html
 ```
 
 ## Backend dependency
