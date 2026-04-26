@@ -3,7 +3,7 @@ import hashlib
 import json
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, WebSocket, Request, HTTPException
+from fastapi import Depends, FastAPI, WebSocket, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from agents.cascade import emergency_pressure_warden, mobility_warden, public_health_warden
@@ -374,12 +374,26 @@ def force_source_refresh():
 
 
 def require_dev_access(request: Request):
-    if ENVIRONMENT == "local":
+    """
+    Protects /dev routes at the backend layer.
+
+    Local mode allows no-token access so local development and debugging stay easy.
+    Production mode requires a valid x-admin-token header to prevent public access
+    to dangerous developer controls (refresh/clear/reset operations).
+    """
+
+    if ENVIRONMENT != "production":
         return
+
+    if not ADMIN_TOKEN:
+        raise HTTPException(
+            status_code=403,
+            detail="Developer controls are disabled because ADMIN_TOKEN is not configured.",
+        )
 
     supplied_token = request.headers.get("x-admin-token")
 
-    if ADMIN_TOKEN and supplied_token == ADMIN_TOKEN:
+    if supplied_token == ADMIN_TOKEN:
         return
 
     raise HTTPException(
@@ -499,6 +513,7 @@ def runtime_status():
         "agent_log_count": len(agent_log),
         "insight_count": len(insights),
         "environment": ENVIRONMENT,
+        "dev_routes_protected": ENVIRONMENT == "production",
         "public_dev_routes_protected": ENVIRONMENT == "production",
     }
 
@@ -707,8 +722,7 @@ async def street_manager_section_58(request: Request):
 
 
 @app.post("/dev/force-refresh")
-def dev_force_refresh(request: Request):
-    require_dev_access(request)
+def dev_force_refresh(_: None = Depends(require_dev_access)):
     queued = force_source_refresh()
 
     return {
@@ -719,8 +733,7 @@ def dev_force_refresh(request: Request):
 
 
 @app.post("/dev/clear-live-feed")
-def dev_clear_live_feed(request: Request):
-    require_dev_access(request)
+def dev_clear_live_feed(_: None = Depends(require_dev_access)):
     history.clear()
     log_agent("Developer Controls", "Live feed memory cleared.", "warning")
 
@@ -731,8 +744,7 @@ def dev_clear_live_feed(request: Request):
 
 
 @app.post("/dev/clear-risk-map")
-def dev_clear_risk_map(request: Request):
-    require_dev_access(request)
+def dev_clear_risk_map(_: None = Depends(require_dev_access)):
     risk_map.clear()
     log_agent("Developer Controls", "Risk map cleared.", "warning")
 
@@ -743,8 +755,7 @@ def dev_clear_risk_map(request: Request):
 
 
 @app.post("/dev/reset-database")
-def dev_reset_database(request: Request):
-    require_dev_access(request)
+def dev_reset_database(_: None = Depends(require_dev_access)):
     global duplicate_count
     global last_source_fetch_time
 
