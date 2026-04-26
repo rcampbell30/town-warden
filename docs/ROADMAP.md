@@ -15,11 +15,12 @@
 
 ## Next technical upgrades
 
-1. Street Manager connector
-2. Better zone mapping with ward/boundary polygons
-3. Real map via Leaflet/OpenStreetMap
-4. PostgreSQL migration
-5. Deployment to public cloud
-6. GitHub contribution docs
-7. Tests and CI checks
-8. Multi-town connector config
+1. v3 Pattern Intelligence (implemented: rule-based developer insights for patterns, anomalies, source quality, and deduplication signals)
+2. Street Manager production integration (pending external approval)
+3. Better zone mapping with ward/boundary polygons
+4. Real map via Leaflet/OpenStreetMap
+5. PostgreSQL migration
+6. Deployment to public cloud
+7. GitHub contribution docs
+8. Tests and CI checks
+9. Multi-town connector config

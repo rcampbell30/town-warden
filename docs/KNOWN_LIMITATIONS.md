@@ -20,6 +20,12 @@ The `/dev/*` endpoints are useful locally but unsafe publicly unless authenticat
 
 The Street Manager connector is currently a stub pending API access.
 
+## Pattern Intelligence
+
+Pattern Intelligence insights are currently rule-based heuristics, not machine-learning predictions.
+
+Insights are developer-facing early indicators and should not be treated as official public authority conclusions.
+
 ## Decision support only
 
 Town Warden is not an automated decision-maker. It is a signal-monitoring and decision-support prototype.

@@ -55,7 +55,7 @@
 
     .summary-strip {
       display: grid;
-      grid-template-columns: repeat(7, minmax(120px, 1fr));
+      grid-template-columns: repeat(8, minmax(120px, 1fr));
       gap: 10px;
       margin-bottom: 18px;
     }
@@ -125,6 +125,7 @@
 
     .event,
     .alert,
+    .insight-card,
     .history-row,
     .risk-row,
     .log-row,
@@ -163,6 +164,28 @@
     .log-row.success {
       border-left-color: #22c55e;
       background: #0d1f17;
+    }
+
+    .insight-card.info {
+      border-left-color: #60a5fa;
+      background: #0f1b30;
+    }
+
+    .insight-card.warning {
+      border-left-color: #f59e0b;
+      background: #2a1f12;
+    }
+
+    .insight-card.high,
+    .insight-card.danger,
+    .insight-card.error {
+      border-left-color: #ef4444;
+      background: #2a1518;
+    }
+
+    .insight-card.success {
+      border-left-color: #22c55e;
+      background: #102419;
     }
 
     .source-real {
@@ -402,6 +425,11 @@
       <div class="summary-label">Critical zones</div>
       <div class="summary-value" id="sumCritical">--</div>
     </div>
+
+    <div class="summary-chip">
+      <div class="summary-label">Insights found</div>
+      <div class="summary-value" id="sumInsights">--</div>
+    </div>
   </div>
 
   <div class="critical-banner" id="criticalBanner">CRITICAL ZONE MODE ACTIVE</div>
@@ -437,6 +465,13 @@
       <div id="alerts">
         <div class="meta">No active agent alerts. Check Agent Comms Log for internal system activity.</div>
       </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Agent Insights</h2>
+    <div id="insightsPanel">
+      <div class="meta">Developer-facing pattern insights will appear here.</div>
     </div>
   </div>
 
@@ -553,6 +588,7 @@ const WS_URL = IS_LOCAL_FRONTEND
 let ws = null;
 let commsPaused = false;
 let commsCache = [];
+let latestInsights = [];
 
 if (!IS_LOCAL_FRONTEND) {
   document.getElementById("developerControlsCard").style.display = "none";
@@ -588,6 +624,8 @@ function updateSummary(data) {
   document.getElementById("sumRefresh").innerText =
     data.next_source_refresh_seconds !== undefined ? `${data.next_source_refresh_seconds}s` : "--";
   document.getElementById("sumCritical").innerText = (data.critical_zones || []).length;
+  document.getElementById("sumInsights").innerText =
+    data.insights?.length ?? data.count ?? latestInsights.length ?? "--";
 }
 
 function collapseIdle(logs) {
@@ -632,6 +670,30 @@ function renderAgentComms(agentLog) {
       <div class="agent-badge">${entry.agent || "System"}</div>
       <div>${entry.message || "No message."}</div>
       <div class="meta">${entry.timestamp || ""}</div>
+    </div>
+  `).join("");
+}
+
+function renderInsights(insights) {
+  latestInsights = (insights || []).slice(-100);
+
+  if (!latestInsights.length) {
+    document.getElementById("insightsPanel").innerHTML =
+      `<div class="meta">No insights generated yet. This panel is for developer-facing early indicators, not official public authority advice.</div>`;
+    return;
+  }
+
+  const sorted = [...latestInsights].reverse();
+  document.getElementById("insightsPanel").innerHTML = sorted.map(item => `
+    <div class="insight-card ${item.severity || "info"}">
+      <div class="agent-badge">${item.agent || "Insight Agent"}</div>
+      <strong>${item.title || "Insight"}</strong>
+      <div>${item.summary || "No summary provided."}</div>
+      <div class="meta">Pattern: ${item.pattern_type || "general"} | Severity: ${(item.severity || "info").toUpperCase()} | Confidence: ${Math.round((item.confidence || 0) * 100)}%</div>
+      ${item.location ? `<div class="meta">Location: ${item.location}</div>` : ""}
+      ${(item.evidence || []).length ? `<div class="meta">Evidence: ${(item.evidence || []).join(" • ")}</div>` : ""}
+      ${item.suggested_action ? `<div class="meta">Suggested action: ${item.suggested_action}</div>` : ""}
+      <div class="meta">${item.timestamp || ""}</div>
     </div>
   `).join("");
 }
@@ -695,6 +757,18 @@ async function loadSourceHealth() {
   } catch {
     document.getElementById("sourceHealthPanel").innerHTML =
       `<div class="meta">Source health unavailable. Check backend.</div>`;
+  }
+}
+
+async function loadInsights() {
+  try {
+    const response = await fetch(`${API_BASE}/insights`);
+    const data = await response.json();
+    renderInsights(data.insights || []);
+    document.getElementById("sumInsights").innerText = data.count ?? (data.insights || []).length;
+  } catch {
+    document.getElementById("insightsPanel").innerHTML =
+      `<div class="meta">Insights unavailable. Check backend.</div>`;
   }
 }
 
@@ -955,6 +1029,7 @@ function connectWebSocket() {
     updateSummary(data);
     renderSourceHealth({ sources: data.source_health || data.sources || {} });
     renderAgentComms(data.agent_log || []);
+    renderInsights(data.insights || []);
     renderLiveEvent(event, isWaiting);
     renderAlerts(alerts);
     renderRisk(riskMap);
@@ -974,10 +1049,12 @@ function connectWebSocket() {
 setInterval(loadHistory, 10000);
 setInterval(loadAnalytics, 15000);
 setInterval(loadSourceHealth, 10000);
+setInterval(loadInsights, 20000);
 
 loadHistory();
 loadAnalytics();
 loadSourceHealth();
+loadInsights();
 connectWebSocket();
 </script>
 </body>

@@ -32,8 +32,20 @@ It is not yet suitable for unsupervised public production use.
 - Next source refresh countdown
 - History endpoint and UI
 - Analytics endpoint and UI
+- v3 Pattern Intelligence insight stream
 - Developer controls for local testing
 - Modular connector/agent structure
+
+## Pattern Intelligence
+
+Town Warden v3 adds **rule-based Pattern Intelligence** so agents can generate developer-facing insights about:
+
+- repeating location and event-type concentrations
+- emerging risk patterns before critical thresholds
+- data quality concerns from source health
+- deduplication pressure from repeated source records
+
+These insights are intended for engineering and operations interpretation only. They are early indicators and **not official public authority advice or conclusions**.
 
 ## Folder structure
 

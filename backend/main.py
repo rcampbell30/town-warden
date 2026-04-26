@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from agents.cascade import emergency_pressure_warden, mobility_warden, public_health_warden
 from agents.primary import infrastructure_warden, incident_warden, waste_warden, weather_warden
+from agents.insights import generate_insights
 from agents.trend import trend_warden
 from agents.zone import critical_zone_warden, response_warden
 from config import (
@@ -50,6 +51,7 @@ history = []
 risk_map = {}
 real_event_queue = []
 agent_log = []
+insights = []
 
 duplicate_count = 0
 last_source_fetch_time = None
@@ -109,6 +111,38 @@ def log_agent(agent, message, level="info"):
     })
 
     agent_log[:] = agent_log[-80:]
+
+
+def log_insight(
+    agent,
+    title,
+    summary,
+    location=None,
+    pattern_type="general",
+    confidence=0.5,
+    severity="info",
+    evidence=None,
+    suggested_action=None,
+    public_safe=True,
+):
+    insight = {
+        "timestamp": datetime.now().isoformat(),
+        "agent": agent,
+        "title": title,
+        "summary": summary,
+        "location": location,
+        "pattern_type": pattern_type,
+        "confidence": confidence,
+        "severity": severity,
+        "evidence": evidence or [],
+        "suggested_action": suggested_action,
+        "public_safe": public_safe,
+    }
+
+    insights.append(insight)
+    insights[:] = insights[-100:]
+
+    return insight
 
 
 log_agent("System", "Town Warden backend started.", "success")
@@ -440,6 +474,7 @@ def runtime_status():
         "live_history_count": len(history),
         "risk_map": risk_map,
         "agent_log_count": len(agent_log),
+        "insights_count": len(insights),
     }
 
 
@@ -468,6 +503,18 @@ def get_agent_log():
     return {
         "agent_log": agent_log[-80:],
         "count": len(agent_log),
+    }
+
+
+@app.get("/insights")
+def get_insights():
+    latest_insights = insights[-100:]
+
+    return {
+        "insights": latest_insights,
+        "count": len(insights),
+        "public_safe_count": len([item for item in insights if item.get("public_safe")]),
+        "data_quality_warnings": len([item for item in insights if item.get("pattern_type") == "data_quality"]),
     }
 
 
@@ -673,6 +720,7 @@ def dev_reset_database():
     risk_map.clear()
     real_event_queue.clear()
     agent_log.clear()
+    insights.clear()
 
     duplicate_count = 0
     last_source_fetch_time = None
@@ -731,6 +779,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "source_health": source_health,
                 "sources": source_health,
                 "agent_log": agent_log[-80:],
+                "insights": insights[-100:],
                 "waiting_for_real_events": True,
                 "system_mode": "real-data-only civic intelligence system",
                 **runtime_status(),
@@ -768,6 +817,59 @@ async def websocket_endpoint(websocket: WebSocket):
         )
 
         alerts, critical_zones = run_agents(history)
+        generated_insights = generate_insights(history, risk_map, source_health, duplicate_count)
+
+        insights_by_agent = {}
+
+        for candidate in generated_insights:
+            fingerprint = "::".join([
+                str(candidate.get("agent", "")),
+                str(candidate.get("title", "")),
+                str(candidate.get("location", "")),
+                str(candidate.get("pattern_type", "")),
+            ])
+
+            existing = next(
+                (
+                    item for item in reversed(insights)
+                    if "::".join([
+                        str(item.get("agent", "")),
+                        str(item.get("title", "")),
+                        str(item.get("location", "")),
+                        str(item.get("pattern_type", "")),
+                    ]) == fingerprint
+                ),
+                None,
+            )
+
+            should_add = True
+
+            if existing:
+                existing_timestamp = existing.get("timestamp")
+
+                if existing_timestamp:
+                    existing_time = datetime.fromisoformat(existing_timestamp)
+                    should_add = datetime.now() - existing_time >= timedelta(minutes=10)
+
+            if should_add:
+                log_insight(
+                    agent=candidate.get("agent", "Insight Agent"),
+                    title=candidate.get("title", "Insight generated"),
+                    summary=candidate.get("summary", "No summary provided."),
+                    location=candidate.get("location"),
+                    pattern_type=candidate.get("pattern_type", "general"),
+                    confidence=candidate.get("confidence", 0.5),
+                    severity=candidate.get("severity", "info"),
+                    evidence=candidate.get("evidence", []),
+                    suggested_action=candidate.get("suggested_action"),
+                    public_safe=candidate.get("public_safe", True),
+                )
+
+                agent_name = candidate.get("agent", "Insight Agent")
+                insights_by_agent[agent_name] = insights_by_agent.get(agent_name, 0) + 1
+
+        for agent_name, generated_count in insights_by_agent.items():
+            log_agent(agent_name, f"{agent_name} generated {generated_count} insights.", "info")
 
         for alert in alerts:
             save_alert(alert)
@@ -787,6 +889,7 @@ async def websocket_endpoint(websocket: WebSocket):
             "source_health": source_health,
             "sources": source_health,
             "agent_log": agent_log[-80:],
+            "insights": insights[-100:],
             "waiting_for_real_events": False,
             "system_mode": "real-data-only civic intelligence system",
             **runtime_status(),
