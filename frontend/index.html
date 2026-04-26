@@ -4,321 +4,435 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Town Warden - Public Dashboard</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  >
   <style>
     :root {
-      --bg: #eef3f9;
+      --bg: #edf2f7;
       --surface: #ffffff;
+      --surface-soft: #f8fafc;
       --text: #0f172a;
       --muted: #475569;
-      --border: #d4e1ef;
-      --brand: #1d4ed8;
-      --ok: #14532d;
-      --warn: #92400e;
-      --danger: #991b1b;
-      --soft: #f8fbff;
+      --border: #d6e0eb;
+      --brand: #2563eb;
+      --ok: #166534;
+      --warn: #a16207;
+      --danger: #b91c1c;
+      --focus: #0ea5e9;
+      --shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
     }
+
+    body.dark {
+      --bg: #0f172a;
+      --surface: #111c2e;
+      --surface-soft: #16243a;
+      --text: #e2e8f0;
+      --muted: #a8b5c8;
+      --border: #24364d;
+      --brand: #60a5fa;
+      --ok: #4ade80;
+      --warn: #fbbf24;
+      --danger: #f87171;
+      --focus: #38bdf8;
+      --shadow: 0 12px 28px rgba(2, 6, 23, 0.35);
+    }
+
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      padding: 20px;
-      font-family: Inter, Arial, sans-serif;
+      padding: 24px;
+      font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
       line-height: 1.5;
     }
 
     .page {
-      max-width: 1100px;
+      max-width: 1280px;
       margin: 0 auto;
+      display: grid;
+      gap: 18px;
     }
 
-    .topbar {
+    .header,
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .header {
+      padding: 18px;
       display: flex;
       justify-content: space-between;
-      gap: 12px;
-      align-items: start;
-      margin-bottom: 14px;
+      gap: 16px;
+      align-items: flex-start;
     }
 
-    h1 {
-      margin: 0;
-      font-size: 2rem;
-    }
-
-    h2 {
-      margin: 0 0 10px;
-      font-size: 1.35rem;
-    }
-
-    h3 {
-      margin: 8px 0;
-      font-size: 1.05rem;
-    }
+    h1 { margin: 0; font-size: 2rem; }
+    h2 { margin: 0 0 10px; font-size: 1.2rem; }
+    h3 { margin: 0; font-size: 1rem; }
 
     .subtitle,
     .meta,
-    .hint {
-      color: var(--muted);
+    .hint,
+    .caption { color: var(--muted); }
+
+    .caption { font-size: 0.9rem; }
+
+    .header-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+      align-items: center;
     }
 
     .status-pill {
-      border: 1px solid #bfdbfe;
-      background: #eff6ff;
-      color: #1e3a8a;
+      border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--border));
+      background: color-mix(in srgb, var(--brand) 10%, var(--surface));
+      color: var(--brand);
       border-radius: 999px;
-      padding: 8px 12px;
+      padding: 9px 14px;
       font-weight: 700;
-      white-space: nowrap;
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
     }
 
-    .card,
-    .panel {
+    button {
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 14px;
-      margin-bottom: 14px;
-      background: var(--surface);
+      border-radius: 10px;
+      min-height: 44px;
+      padding: 9px 13px;
+      background: var(--surface-soft);
+      color: var(--text);
+      font-weight: 600;
+      cursor: pointer;
     }
+
+    button:hover { border-color: var(--brand); }
+    button:focus-visible,
+    input:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+    .card { padding: 16px; }
 
     .summary-grid {
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 10px;
+      gap: 12px;
     }
 
-    .summary-card {
+    .summary-item {
+      background: var(--surface-soft);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--soft);
-      padding: 10px;
+      border-radius: 12px;
+      padding: 12px;
     }
 
     .summary-label {
       color: var(--muted);
+      font-size: 0.75rem;
       text-transform: uppercase;
-      font-size: 11px;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.04em;
     }
 
-    .summary-value {
-      font-size: 1.5rem;
-      font-weight: 700;
+    .summary-value { font-size: 1.6rem; font-weight: 700; }
+
+    .question-grid {
+      display: grid;
+      grid-template-columns: 1.4fr 2fr;
+      gap: 16px;
+      align-items: stretch;
     }
 
-    .hero-note {
-      background: #f8fafc;
+    .qa-stack { display: grid; gap: 12px; }
+
+    .question-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: var(--surface-soft);
+    }
+
+    .question-card strong { font-size: 0.9rem; display: block; color: var(--muted); }
+    .question-card .answer { font-size: 1.1rem; font-weight: 700; margin-top: 4px; }
+
+    .risk-stable { color: var(--ok); }
+    .risk-watch { color: var(--warn); }
+    .risk-elevated { color: var(--danger); }
+
+    .map-layout {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    #map {
+      width: 100%;
+      min-height: 460px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .side-panel {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      background: var(--surface-soft);
+      display: grid;
+      gap: 12px;
+      min-height: 460px;
+      align-content: start;
+    }
+
+    .search-wrap input {
+      width: 100%;
+      min-height: 44px;
       border: 1px solid var(--border);
       border-radius: 10px;
       padding: 10px;
-      font-size: 0.92rem;
-      color: #334155;
+      background: var(--surface);
+      color: var(--text);
     }
 
-    .coverage-note {
-      margin-top: 8px;
-      border-left: 4px solid #93c5fd;
-      padding-left: 10px;
-      font-size: 0.93rem;
-      color: #1e3a8a;
-    }
-
-    .insight {
-      border: 1px solid var(--border);
-      border-left: 6px solid #60a5fa;
-      border-radius: 10px;
-      padding: 12px;
-      margin-bottom: 10px;
-      background: #fff;
-    }
-
-    .insight.warning {
-      border-left-color: #f59e0b;
-    }
-
-    .insight.high,
-    .insight.critical,
-    .insight.danger,
-    .insight.error {
-      border-left-color: #ef4444;
-    }
-
-    .badge {
-      display: inline-block;
+    .chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip {
+      font-size: 0.8rem;
       border-radius: 999px;
-      font-size: 11px;
-      font-weight: 700;
-      padding: 2px 8px;
-      text-transform: uppercase;
-      margin-left: 8px;
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
     }
 
-    .badge.low {
-      background: #dcfce7;
-      color: var(--ok);
-    }
-
-    .badge.medium {
-      background: #fef3c7;
-      color: var(--warn);
-    }
-
-    .badge.high,
-    .badge.critical {
-      background: #fee2e2;
-      color: var(--danger);
-    }
-
-    .grid-2 {
+    .list {
       display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      max-height: 230px;
+      overflow: auto;
+      padding-right: 2px;
     }
 
     .list-item {
       border: 1px solid var(--border);
       border-radius: 10px;
-      background: #fff;
+      background: var(--surface);
       padding: 10px;
-      margin-bottom: 8px;
+      cursor: pointer;
     }
 
-    .map-wrap {
+    .list-item button {
+      all: unset;
+      display: block;
+      width: 100%;
+      cursor: pointer;
+    }
+
+    .insights-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    }
+
+    .insight-card {
       border: 1px solid var(--border);
+      border-left: 6px solid #93c5fd;
       border-radius: 12px;
-      background: var(--soft);
-      padding: 10px;
+      background: var(--surface-soft);
+      padding: 12px;
     }
 
-    .zone {
-      border: 1px solid var(--border);
-      border-left: 8px solid #60a5fa;
-      border-radius: 10px;
-      padding: 10px;
-      margin-bottom: 8px;
-      background: #fff;
-    }
+    .insight-card.medium { border-left-color: #fbbf24; }
+    .insight-card.high,
+    .insight-card.critical,
+    .insight-card.danger,
+    .insight-card.error { border-left-color: #f87171; }
 
-    .zone.medium {
-      border-left-color: #f59e0b;
-    }
+    .severity-icon { margin-right: 6px; }
 
-    .zone.high,
-    .zone.critical {
-      border-left-color: #ef4444;
-    }
-
-    .footer-link {
-      margin-top: 8px;
+    .dev-link {
+      margin-top: 6px;
       font-size: 0.9rem;
     }
 
-    .footer-link a {
-      color: #1d4ed8;
-      text-decoration: none;
-      font-weight: 600;
+    .dev-link a { color: var(--brand); font-weight: 600; text-decoration: none; }
+    .dev-link a:hover { text-decoration: underline; }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
-    .footer-link a:hover {
-      text-decoration: underline;
-    }
-
-    @media (max-width: 980px) {
-      .topbar {
-        flex-direction: column;
-      }
-
-      .summary-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .grid-2 {
-        grid-template-columns: 1fr;
-      }
+    @media (max-width: 1080px) {
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .question-grid,
+      .map-layout { grid-template-columns: 1fr; }
+      .side-panel { min-height: initial; }
+      #map { min-height: 360px; }
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <div class="topbar">
+    <header class="header" aria-label="Dashboard header">
       <div>
         <h1>Town Warden</h1>
         <div class="subtitle">Public civic status dashboard for Blackpool</div>
+        <div class="caption">For residents asking: Is everything OK? Where are risks now? What is changing?</div>
       </div>
-      <div id="statusPill" class="status-pill">Connecting...</div>
-    </div>
-
-    <div class="card">
-      <h2>Public Status</h2>
-      <div class="meta">Backend connection: <strong id="heroConnection">Connecting...</strong></div>
-      <div class="meta">Last updated: <strong id="heroUpdated">--</strong></div>
-      <div class="hero-note">Experimental civic intelligence prototype. Not official public authority advice.</div>
-      <div class="coverage-note">Patterns may reflect current source coverage. Police.uk and Open-Meteo are active; Street Manager roadworks data is pending approval.</div>
-      <div class="footer-link"><a href="./dev.html">Developer dashboard</a> (for diagnostics and internal metadata)</div>
-    </div>
-
-    <div class="summary-grid">
-      <div class="summary-card"><div class="summary-label">Town health</div><div class="summary-value" id="sumHealth">--</div></div>
-      <div class="summary-card"><div class="summary-label">Sources active</div><div class="summary-value" id="sumSources">--</div></div>
-      <div class="summary-card"><div class="summary-label">Signals processed</div><div class="summary-value" id="sumEvents">--</div></div>
-      <div class="summary-card"><div class="summary-label">Risk zones</div><div class="summary-value" id="sumRiskZones">--</div></div>
-      <div class="summary-card"><div class="summary-label">Insights</div><div class="summary-value" id="sumInsights">--</div></div>
-    </div>
-
-    <div class="panel">
-      <h2>Agent Insights</h2>
-      <div class="hero-note">Insights are experimental and source-limited. They are not complete coverage of all town activity and should be treated as early signals, not official direction.</div>
-      <div id="publicInsights"><div class="meta">No source-limited insights available yet.</div></div>
-    </div>
-
-    <div class="card">
-      <h2>Blackpool Risk Overview</h2>
-      <div class="grid-2">
-        <div id="riskList"><div class="meta">No accumulated risk currently.</div></div>
-        <div id="riskMapZones" class="map-wrap"></div>
+      <div class="header-actions">
+        <button id="themeToggle" type="button" aria-label="Toggle dark mode">
+          <span aria-hidden="true">🌓</span> Theme
+        </button>
+        <div id="statusPill" class="status-pill" role="status" aria-live="polite">Connecting...</div>
       </div>
-    </div>
+    </header>
 
-    <div class="grid-2">
-      <div class="panel">
-        <h2>Latest Civic Signals</h2>
-        <div id="latestSignals"><div class="meta">No fresh unseen events. Waiting for next source refresh.</div></div>
+    <section class="card" aria-label="Core metrics">
+      <div class="summary-grid">
+        <div class="summary-item"><div class="summary-label">Town health</div><div class="summary-value" id="sumHealth">--</div></div>
+        <div class="summary-item"><div class="summary-label">Active sources</div><div class="summary-value" id="sumSources">--</div></div>
+        <div class="summary-item"><div class="summary-label">Signals processed</div><div class="summary-value" id="sumEvents">--</div></div>
+        <div class="summary-item"><div class="summary-label">Risk zones</div><div class="summary-value" id="sumRiskZones">--</div></div>
+        <div class="summary-item"><div class="summary-label">Insights</div><div class="summary-value" id="sumInsights">--</div></div>
       </div>
-      <div class="panel">
+      <div class="dev-link">Developer diagnostics are separated on <a href="./dev.html">dev.html</a>.</div>
+    </section>
+
+    <section class="card question-grid" aria-label="Status questions">
+      <div class="qa-stack">
+        <div class="question-card">
+          <strong>Is everything OK?</strong>
+          <div class="answer" id="answerEverything">Checking latest status…</div>
+          <div class="meta">Connection: <span id="heroConnection">Connecting...</span> • Updated: <span id="heroUpdated">--</span></div>
+        </div>
+        <div class="question-card">
+          <strong>Where are the risks right now?</strong>
+          <div class="answer" id="answerRiskNow">Loading area risk…</div>
+          <div class="meta" id="answerRiskHint">Risk zones are refreshed from runtime updates.</div>
+        </div>
+        <div class="question-card">
+          <strong>What’s changing?</strong>
+          <div class="answer" id="answerChanging">Watching latest civic signals…</div>
+          <div class="meta">Automated signals only; not official authority direction.</div>
+        </div>
+      </div>
+      <div class="question-card">
         <h2>Source Status</h2>
         <div id="publicSourceStatus"><div class="meta">Loading source status...</div></div>
       </div>
-    </div>
+    </section>
+
+    <section class="card" aria-label="Blackpool risk map and context">
+      <h2>Blackpool Risk & Signal Map</h2>
+      <div class="map-layout">
+        <div>
+          <div id="map" aria-label="Interactive map of Blackpool civic risk zones"></div>
+          <div class="caption">Layers can be toggled for risk overlays and source markers (Police.uk, Open‑Meteo, Street Manager).</div>
+        </div>
+        <aside class="side-panel" aria-label="Selected map detail panel">
+          <div class="search-wrap">
+            <label for="locationSearch"><strong>Find area or address</strong></label>
+            <input id="locationSearch" type="search" placeholder="Search Town Centre, North Shore, address..." aria-describedby="searchHelp">
+            <div id="searchHelp" class="caption">Search matches risk zones and latest civic signals.</div>
+          </div>
+
+          <section>
+            <h3>Selected Context</h3>
+            <div id="selectedContext" class="meta">Click a zone or marker to see details.</div>
+            <div class="chip-list" id="selectedMeta"></div>
+          </section>
+
+          <section>
+            <h3>Recent signals in view</h3>
+            <div id="selectedSignals" class="list"><div class="meta">No area selected yet.</div></div>
+          </section>
+
+          <section>
+            <h3>Quick jump</h3>
+            <div id="searchResults" class="list"><div class="meta">Type to filter areas and signals.</div></div>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Agent insights">
+      <h2>Agent Insights</h2>
+      <div id="publicInsights" class="insights-grid"><div class="meta">No source-limited insights available yet.</div></div>
+    </section>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   <script>
   // Public/developer separation note:
-  // This page intentionally exposes only public-safe civic summaries.
-  // Developer controls, raw logs, and internal metadata are moved to frontend/dev.html.
+  // This public page intentionally avoids raw logs and internal controls.
+  // Diagnostic views remain in frontend/dev.html.
 
   const IS_LOCAL_FRONTEND = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
   const API_BASE = IS_LOCAL_FRONTEND ? "http://127.0.0.1:8000" : "https://town-warden.onrender.com";
   const WS_URL = IS_LOCAL_FRONTEND ? "ws://127.0.0.1:8000/ws" : "wss://town-warden.onrender.com/ws";
-  const ZONES = ["North Shore", "Town Centre", "South Shore", "Blackpool South"];
+
+  // Significant UX change: static pseudo-map has been replaced by an actual Leaflet map with
+  // source-specific marker layers, risk overlays, and synchronized right-side context panel.
+  const ZONES = {
+    "Town Centre": { center: [53.8166, -3.0506], radius: 900, description: "Retail, transport and nightlife activity." },
+    "North Shore": { center: [53.8315, -3.0554], radius: 1100, description: "Seafront and residential strip north of the centre." },
+    "South Shore": { center: [53.7928, -3.0552], radius: 1200, description: "Promenade, attractions and event-heavy southern area." }
+  };
 
   let ws = null;
   let latestInsights = [];
   let latestEvents = [];
+  let latestRiskMap = {};
+  let latestSourceHealth = {};
+
+  let map;
+  let zoneLayerGroup;
+  let sourceLayers = {
+    "Police.uk": L.layerGroup(),
+    "Open-Meteo": L.layerGroup(),
+    "Street Manager": L.layerGroup()
+  };
 
   function zoneRiskLevel(value) {
-    if (value >= 75) return { key: "critical", label: "Critical", summary: "Critical" };
-    if (value >= 45) return { key: "high", label: "Elevated", summary: "Elevated" };
-    if (value >= 20) return { key: "medium", label: "Watching", summary: "Watching" };
-    return { key: "low", label: "Stable", summary: "Stable" };
+    if (value >= 75) return { key: "critical", label: "Critical", css: "risk-elevated", color: "#dc2626" };
+    if (value >= 45) return { key: "high", label: "Elevated", css: "risk-elevated", color: "#ef4444" };
+    if (value >= 20) return { key: "medium", label: "Watch", css: "risk-watch", color: "#f59e0b" };
+    return { key: "low", label: "Stable", css: "risk-stable", color: "#22c55e" };
+  }
+
+  function formatTime(value) {
+    if (!value) return "Unknown time";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString();
   }
 
   function updateHeroStatus(connected) {
     document.getElementById("heroConnection").innerText = connected ? "Connected" : "Disconnected";
-    document.getElementById("statusPill").innerText = connected ? "Backend Connected" : "Backend Disconnected";
+    document.getElementById("statusPill").innerText = connected ? "Backend connected" : "Backend disconnected";
     document.getElementById("heroUpdated").innerText = new Date().toLocaleTimeString();
   }
 
   function updateSummary(data, sourceHealth) {
     const sources = sourceHealth || data.source_health || data.sources || {};
+    latestSourceHealth = sources;
     const publicSources = ["Police.uk", "Open-Meteo", "Street Manager"];
     const connected = publicSources.filter(name => {
       const status = String(sources[name]?.status || "").toLowerCase();
@@ -327,55 +441,46 @@
 
     document.getElementById("sumHealth").innerText = data.health !== undefined ? `${data.health}/100` : "--";
     document.getElementById("sumSources").innerText = `${connected}/3`;
-    document.getElementById("sumEvents").innerText = data.live_history_count ?? data.history_count ?? "--";
-    document.getElementById("sumRiskZones").innerText = Object.keys(data.risk_map || {}).length;
+    document.getElementById("sumEvents").innerText = data.live_history_count ?? data.history_count ?? latestEvents.length ?? "--";
+    document.getElementById("sumRiskZones").innerText = Object.keys(data.risk_map || latestRiskMap || {}).length;
     document.getElementById("sumInsights").innerText = data.insight_count ?? data.count ?? latestInsights.length;
-  }
 
-  function renderRiskPanels(riskMap) {
-    const map = riskMap || {};
-    const list = Object.entries(map).sort((a, b) => b[1] - a[1]);
+    const townHealth = data.health ?? 0;
+    const healthClass = townHealth >= 75 ? "risk-stable" : townHealth >= 45 ? "risk-watch" : "risk-elevated";
+    document.getElementById("answerEverything").innerHTML = `<span class="${healthClass}">${townHealth >= 75 ? "Generally stable" : townHealth >= 45 ? "Some concerns to monitor" : "Elevated concern"}</span> (${townHealth}/100)`;
 
-    document.getElementById("riskList").innerHTML = list.length ? list.map(([zone, score]) => {
-      const level = zoneRiskLevel(score);
-      return `<div class="list-item"><strong>${zone}</strong><span class="badge ${level.key}">${level.label}</span><div class="meta">Risk score: ${Math.round(score)}</div></div>`;
-    }).join("") : `<div class="meta">No accumulated risk currently.</div>`;
-
-    document.getElementById("riskMapZones").innerHTML = ZONES.map(zone => {
-      const score = map[zone] || 0;
-      const level = zoneRiskLevel(score);
-      return `<div class="zone ${level.key}"><strong>${zone}</strong><div class="meta">${level.summary}</div></div>`;
-    }).join("");
-  }
-
-  function renderLatestSignals() {
-    const container = document.getElementById("latestSignals");
-    if (!latestEvents.length) {
-      container.innerHTML = `<div class="meta">No fresh unseen events. Waiting for next source refresh.</div>`;
-      return;
+    const topRisk = Object.entries(data.risk_map || latestRiskMap || {}).sort((a, b) => b[1] - a[1])[0];
+    if (topRisk) {
+      const level = zoneRiskLevel(topRisk[1]);
+      document.getElementById("answerRiskNow").innerHTML = `<span class="${level.css}">${topRisk[0]} - ${level.label}</span>`;
+      document.getElementById("answerRiskHint").innerText = `Current risk score: ${Math.round(topRisk[1])}.`;
+    } else {
+      document.getElementById("answerRiskNow").innerText = "No elevated zone currently.";
+      document.getElementById("answerRiskHint").innerText = "No accumulated risk from latest runtime feed.";
     }
 
-    container.innerHTML = latestEvents.slice(0, 8).map(event => `
-      <div class="list-item">
-        <strong>${String(event.type || "signal").toUpperCase()}</strong> - ${event.location || "Unknown"}
-        <div>${event.text || "No signal summary."}</div>
-        <div class="meta">${event.source || "Unknown source"} • ${event.timestamp || ""}</div>
-      </div>
-    `).join("");
+    const latest = latestEvents[0];
+    document.getElementById("answerChanging").innerText = latest
+      ? `${String(latest.type || "signal")} update in ${latest.location || "Blackpool"} (${latest.source || "Unknown source"}).`
+      : "No fresh unseen events. Watching source refresh cycles.";
   }
 
   function renderPublicSourceStatus(sourceHealth) {
-    const sources = sourceHealth || {};
-    const simple = ["Police.uk", "Open-Meteo", "Street Manager"].map(name => {
+    const sources = sourceHealth || latestSourceHealth || {};
+    document.getElementById("publicSourceStatus").innerHTML = ["Police.uk", "Open-Meteo", "Street Manager"].map(name => {
       const info = sources[name] || {};
-      let note = info.message || "No update yet.";
-      if (name === "Street Manager") {
-        note = "Webhook endpoints ready. Awaiting external approval/notifications.";
-      }
+      const note = name === "Street Manager"
+        ? "Webhook endpoints ready. Awaiting external approval/notifications."
+        : (info.message || "No update yet.");
       return `<div class="list-item"><strong>${name}</strong><div class="meta">${note}</div></div>`;
     }).join("");
+  }
 
-    document.getElementById("publicSourceStatus").innerHTML = `${simple}<div class="list-item"><strong>Simulation</strong><div class="meta">Simulation disabled</div></div>`;
+  function severityIcon(severity) {
+    const s = (severity || "info").toLowerCase();
+    if (["critical", "high", "danger", "error"].includes(s)) return "🔴";
+    if (["warning", "medium"].includes(s)) return "🟠";
+    return "🟢";
   }
 
   function renderPublicInsights() {
@@ -385,16 +490,182 @@
       return;
     }
 
-    container.innerHTML = latestInsights.slice(-10).reverse().map(item => `
-      <div class="insight ${item.severity || "info"}">
-        <h3>${item.title || "Insight"}</h3>
-        <div>${item.summary || "No summary."}</div>
-        ${item.source_context ? `<div class="hint">Source context: ${item.source_context}</div>` : ""}
-        <div class="meta">Confidence: ${Math.round((item.confidence || 0) * 100)}% • Severity: ${item.severity || "info"}</div>
-        ${(item.evidence || []).length ? `<ul>${item.evidence.map(e => `<li>${e}</li>`).join("")}</ul>` : ""}
-        <div class="hero-note">Caution: This is an automated pattern signal, not an official instruction or complete townwide picture.</div>
+    container.innerHTML = latestInsights.slice(-9).reverse().map(item => `
+      <article class="insight-card ${item.severity || "info"}">
+        <h3><span class="severity-icon" role="img" aria-label="${item.severity || "info"} severity">${severityIcon(item.severity)}</span>${item.title || "Insight"}</h3>
+        <p>${item.summary || "No summary."}</p>
+        <div class="caption">Affected source(s): ${item.source_context || "General"}</div>
+        <div class="caption">${formatTime(item.timestamp)}</div>
+      </article>
+    `).join("");
+  }
+
+  function inferZoneForEvent(event) {
+    const text = `${event.location || ""} ${event.text || ""}`.toLowerCase();
+    if (text.includes("north")) return "North Shore";
+    if (text.includes("south")) return "South Shore";
+    if (text.includes("centre") || text.includes("center") || text.includes("town")) return "Town Centre";
+
+    // fallback by nearest known zone coordinate if event has lat/lon
+    if (typeof event.lat === "number" && typeof event.lon === "number") {
+      let best = "Town Centre";
+      let bestDist = Infinity;
+      Object.entries(ZONES).forEach(([name, zone]) => {
+        const d = Math.hypot(zone.center[0] - event.lat, zone.center[1] - event.lon);
+        if (d < bestDist) { bestDist = d; best = name; }
+      });
+      return best;
+    }
+
+    return "Town Centre";
+  }
+
+  function eventCoordinates(event, zoneName) {
+    if (typeof event.lat === "number" && typeof event.lon === "number") return [event.lat, event.lon];
+    const zone = ZONES[zoneName] || ZONES["Town Centre"];
+    const jitterA = (Math.random() - 0.5) * 0.01;
+    const jitterB = (Math.random() - 0.5) * 0.01;
+    return [zone.center[0] + jitterA, zone.center[1] + jitterB];
+  }
+
+  function showContextPanel(title, description, metaTags = [], matchingSignals = []) {
+    document.getElementById("selectedContext").innerHTML = `<strong>${title}</strong><div class="meta">${description}</div>`;
+    document.getElementById("selectedMeta").innerHTML = metaTags.map(tag => `<span class="chip">${tag}</span>`).join("");
+
+    const container = document.getElementById("selectedSignals");
+    if (!matchingSignals.length) {
+      container.innerHTML = `<div class="meta">No recent signals for this selection.</div>`;
+      return;
+    }
+
+    container.innerHTML = matchingSignals.slice(0, 8).map(item => `
+      <div class="list-item">
+        <strong>${String(item.type || "signal").toUpperCase()}</strong>
+        <div>${item.text || "No signal summary."}</div>
+        <div class="caption">${item.source || "Unknown"} • ${formatTime(item.timestamp)}</div>
       </div>
     `).join("");
+  }
+
+  function renderMapLayers() {
+    zoneLayerGroup.clearLayers();
+    Object.values(sourceLayers).forEach(layer => layer.clearLayers());
+
+    Object.entries(ZONES).forEach(([name, zone]) => {
+      const score = latestRiskMap[name] || 0;
+      const level = zoneRiskLevel(score);
+      const circle = L.circle(zone.center, {
+        radius: zone.radius,
+        color: level.color,
+        fillColor: level.color,
+        fillOpacity: 0.18,
+        weight: 2
+      });
+
+      const zoneInsights = latestInsights.filter(i => String(i.title || i.summary || "").toLowerCase().includes(name.toLowerCase().split(" ")[0]));
+      const zoneSignals = latestEvents.filter(event => inferZoneForEvent(event) === name);
+
+      circle.bindPopup(`<strong>${name}</strong><br>Risk score: ${Math.round(score)} (${level.label})<br>${zone.description}`);
+      circle.on("click", () => {
+        const trendText = score >= 45 ? "Trend: elevated" : score >= 20 ? "Trend: watch" : "Trend: stable";
+        showContextPanel(
+          name,
+          `${zone.description} ${zoneInsights[0]?.summary || "No additional insight currently."}`,
+          [`Risk ${Math.round(score)}`, trendText],
+          zoneSignals
+        );
+      });
+      zoneLayerGroup.addLayer(circle);
+    });
+
+    latestEvents.forEach((event) => {
+      const zoneName = inferZoneForEvent(event);
+      const coords = eventCoordinates(event, zoneName);
+      const sourceName = ["Police.uk", "Open-Meteo", "Street Manager"].includes(event.source) ? event.source : "Police.uk";
+      const marker = L.marker(coords, { title: `${event.source || "Signal"}: ${event.location || zoneName}` });
+      marker.bindPopup(`<strong>${event.type || "Signal"}</strong><br>${event.location || zoneName}<br>${event.text || "No detail."}`);
+      marker.on("click", () => {
+        const zoneScore = latestRiskMap[zoneName] || 0;
+        showContextPanel(
+          event.location || zoneName,
+          event.text || "No detail.",
+          [event.source || "Unknown source", `Risk ${Math.round(zoneScore)}`],
+          latestEvents.filter(e => inferZoneForEvent(e) === zoneName)
+        );
+      });
+      sourceLayers[sourceName].addLayer(marker);
+    });
+  }
+
+  function updateSearchResults(query) {
+    const q = query.trim().toLowerCase();
+    const results = [];
+    Object.entries(ZONES).forEach(([zoneName, zone]) => {
+      if (!q || zoneName.toLowerCase().includes(q)) {
+        results.push({ type: "zone", label: zoneName, zoneName, score: latestRiskMap[zoneName] || 0, center: zone.center });
+      }
+    });
+
+    latestEvents.forEach(event => {
+      const hay = `${event.location || ""} ${event.text || ""}`.toLowerCase();
+      if (!q || hay.includes(q)) {
+        results.push({ type: "event", event, label: `${event.location || "Unknown"} (${event.source || "Source"})` });
+      }
+    });
+
+    const container = document.getElementById("searchResults");
+    if (!results.length) {
+      container.innerHTML = `<div class="meta">No matching areas or signals.</div>`;
+      return;
+    }
+
+    container.innerHTML = results.slice(0, 12).map((result, idx) => {
+      if (result.type === "zone") {
+        return `<div class="list-item"><button type="button" aria-label="View ${result.zoneName}" data-result="zone-${idx}"><strong>${result.zoneName}</strong><div class="caption">Risk ${Math.round(result.score)}</div></button></div>`;
+      }
+      return `<div class="list-item"><button type="button" aria-label="View signal ${result.label}" data-result="event-${idx}"><strong>${result.label}</strong><div class="caption">${result.event.text || "No summary"}</div></button></div>`;
+    }).join("");
+
+    Array.from(container.querySelectorAll("button[data-result]")).forEach(button => {
+      button.addEventListener("click", () => {
+        const key = button.getAttribute("data-result");
+        const [kind, idxText] = key.split("-");
+        const result = results[Number(idxText)];
+        if (!result) return;
+
+        if (kind === "zone") {
+          map.setView(result.center, 13);
+          const zone = ZONES[result.zoneName];
+          showContextPanel(result.zoneName, zone.description, [`Risk ${Math.round(result.score)}`], latestEvents.filter(e => inferZoneForEvent(e) === result.zoneName));
+        } else {
+          const zoneName = inferZoneForEvent(result.event);
+          const coords = eventCoordinates(result.event, zoneName);
+          map.setView(coords, 14);
+          showContextPanel(result.event.location || zoneName, result.event.text || "No detail.", [result.event.source || "Unknown"], latestEvents.filter(e => inferZoneForEvent(e) === zoneName));
+        }
+      });
+    });
+  }
+
+  function initMap() {
+    map = L.map("map", { zoomControl: true }).setView([53.8175, -3.0497], 12);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    zoneLayerGroup = L.layerGroup().addTo(map);
+
+    sourceLayers["Police.uk"].addTo(map);
+    sourceLayers["Open-Meteo"].addTo(map);
+    sourceLayers["Street Manager"].addTo(map);
+
+    L.control.layers(null, {
+      "Risk overlays": zoneLayerGroup,
+      "Police.uk signals": sourceLayers["Police.uk"],
+      "Open-Meteo signals": sourceLayers["Open-Meteo"],
+      "Street Manager signals": sourceLayers["Street Manager"]
+    }, { collapsed: false }).addTo(map);
   }
 
   async function loadSourceHealth() {
@@ -423,8 +694,10 @@
     try {
       const response = await fetch(`${API_BASE}/runtime-status`);
       const data = await response.json();
+      latestRiskMap = data.risk_map || latestRiskMap || {};
       updateSummary(data, data.source_health || data.sources || {});
-      renderRiskPanels(data.risk_map || {});
+      renderMapLayers();
+      updateSearchResults(document.getElementById("locationSearch").value || "");
     } catch {
       updateSummary({}, {});
     }
@@ -441,21 +714,36 @@
 
     ws.onmessage = (message) => {
       const data = JSON.parse(message.data);
+      latestRiskMap = data.risk_map || latestRiskMap || {};
       updateSummary(data, data.source_health || data.sources || {});
-      renderRiskPanels(data.risk_map || {});
 
       if (data.event && data.event.type !== "waiting") {
         latestEvents.unshift(data.event);
-        latestEvents = latestEvents.slice(0, 8);
+        latestEvents = latestEvents.slice(0, 60);
       }
 
       latestInsights = data.insights || latestInsights;
-      renderLatestSignals();
       renderPublicInsights();
       renderPublicSourceStatus(data.source_health || data.sources || {});
+      renderMapLayers();
+      updateSearchResults(document.getElementById("locationSearch").value || "");
     };
   }
 
+  document.getElementById("locationSearch").addEventListener("input", (event) => {
+    updateSearchResults(event.target.value || "");
+  });
+
+  document.getElementById("themeToggle").addEventListener("click", () => {
+    document.body.classList.toggle("dark");
+    localStorage.setItem("townWardenTheme", document.body.classList.contains("dark") ? "dark" : "light");
+  });
+
+  if (localStorage.getItem("townWardenTheme") === "dark") {
+    document.body.classList.add("dark");
+  }
+
+  initMap();
   setInterval(loadRuntimeStatus, 12000);
   setInterval(loadSourceHealth, 12000);
   setInterval(loadInsights, 20000);
