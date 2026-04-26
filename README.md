@@ -35,6 +35,7 @@ It is not yet suitable for unsupervised public production use.
 - v3 Pattern Intelligence insight stream
 - Developer controls for local testing
 - Modular connector/agent structure
+- Street Manager webhook endpoints ready (awaiting external approval/notifications)
 
 ## Pattern Intelligence
 
@@ -46,6 +47,7 @@ Town Warden v3 adds **rule-based Pattern Intelligence** so agents can generate d
 - deduplication pressure from repeated source records
 
 These insights are intended for engineering and operations interpretation only. They are early indicators and **not official public authority advice or conclusions**.
+They are also source-limited and should be read with source health context.
 
 ## Folder structure
 
@@ -136,8 +138,16 @@ docs/PRODUCTION_PLAN.md
 - Police.uk locations are approximate/anonymised.
 - Current Blackpool zone mapping is rough coordinate mapping, not GIS boundary mapping.
 - SQLite is for local development.
-- Developer controls are not authenticated and must not be exposed publicly.
-- Street Manager roadworks connector is stubbed until API access is configured.
+- Agent Insights are rule-based, source-limited, and experimental.
+- Developer controls are protected in production via `ADMIN_TOKEN` or restricted local mode.
+- Street Manager webhook routes are implemented but waiting for external approval and live payload notifications.
+- Open-Meteo is handled with rate-limit-aware source health messaging.
+
+## Production safety notes
+
+- Set `ENVIRONMENT=production` on Render.
+- Set `ADMIN_TOKEN` to protect `/dev/*` routes with `x-admin-token`.
+- Never expose admin tokens in frontend code.
 
 ## Licence
 

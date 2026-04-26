@@ -31,6 +31,14 @@
       padding-bottom: 10px;
       color: #dbeafe;
     }
+    .section-label {
+      margin: 20px 0 10px;
+      color: #93c5fd;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-size: 12px;
+      font-weight: 700;
+    }
 
     h3 {
       color: #dbeafe;
@@ -214,6 +222,33 @@
       color: #bfdbfe;
       font-weight: 700;
       margin-bottom: 4px;
+    }
+    .severity-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-left: 6px;
+    }
+    .severity-badge.info { background:#1e3a8a; color:#bfdbfe; }
+    .severity-badge.warning { background:#78350f; color:#fde68a; }
+    .severity-badge.high, .severity-badge.danger, .severity-badge.error { background:#7f1d1d; color:#fecaca; }
+    .severity-badge.success { background:#14532d; color:#bbf7d0; }
+    .insight-title { margin: 4px 0 8px; font-size: 17px; }
+    .insight-summary { margin-bottom: 8px; line-height: 1.45; }
+    .insight-meta { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; margin-bottom: 8px; }
+    .insight-evidence { margin: 6px 0 8px 18px; padding:0; }
+    .insight-evidence li { margin-bottom: 3px; }
+    .confidence-note {
+      border: 1px solid #475569;
+      border-radius: 10px;
+      padding: 8px 12px;
+      background: #0b1322;
+      color: #bfdbfe;
+      font-size: 12px;
+      margin-bottom: 10px;
     }
 
     .controls-row {
@@ -434,20 +469,33 @@
 
   <div class="critical-banner" id="criticalBanner">CRITICAL ZONE MODE ACTIVE</div>
   <div class="waiting-card" id="waitingCard">Waiting for next source refresh...</div>
+  <div class="section-label">Public Dashboard</div>
 
-  <div class="grid-2">
-    <div class="card">
-      <h2>Source Health</h2>
-      <button onclick="loadSourceHealth()">Refresh Sources</button>
-      <div id="sourceHealthPanel">
-        <div class="meta">Source health auto-refreshes every 10 seconds.</div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>Risk Intelligence</h2>
+  <div class="card">
+    <h2>Blackpool Zones and Risk Overview</h2>
+    <div class="grid-2">
       <div id="risk">
         <div class="meta">No accumulated zone risk yet.</div>
+      </div>
+      <div class="schematic-map">
+        <div class="coastline">
+          <div class="map-zone" id="mapzone-North-Shore">
+            <strong>North Shore</strong>
+            <div class="meta">Coastal north / promenade pressure</div>
+          </div>
+          <div class="map-zone" id="mapzone-Town-Centre">
+            <strong>Town Centre</strong>
+            <div class="meta">Central incident and civic activity</div>
+          </div>
+          <div class="map-zone" id="mapzone-South-Shore">
+            <strong>South Shore</strong>
+            <div class="meta">Coastal central/south pressure</div>
+          </div>
+          <div class="map-zone" id="mapzone-Blackpool-South">
+            <strong>Blackpool South</strong>
+            <div class="meta">Southern transport and weather area</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -470,27 +518,21 @@
 
   <div class="panel">
     <h2>Agent Insights</h2>
+    <div class="confidence-note">Insights are source-limited and experimental. Not official public authority advice.</div>
     <div id="insightsPanel">
       <div class="meta">Developer-facing pattern insights will appear here.</div>
     </div>
   </div>
 
-  <div class="panel">
-    <h2>Agent Comms Log</h2>
-
-    <div class="controls-row">
-      <button class="secondary" onclick="pauseComms()">Pause Log</button>
-      <button class="secondary" onclick="resumeComms()">Resume Log</button>
-      <button class="secondary" onclick="clearVisibleComms()">Clear Visible Log</button>
-    </div>
-
-    <div class="meta" id="commsState">Live updates active.</div>
-    <div id="agentComms">
-      <div class="meta">No internal agent messages yet.</div>
-    </div>
-  </div>
-
+  <div class="section-label">Secondary Intelligence</div>
   <div class="grid-2">
+    <div class="card">
+      <h2>Source Health</h2>
+      <button onclick="loadSourceHealth()">Refresh Sources</button>
+      <div id="sourceHealthPanel">
+        <div class="meta">Source health auto-refreshes every 10 seconds.</div>
+      </div>
+    </div>
     <div class="card">
       <h2>Analytics Intelligence</h2>
       <button onclick="loadAnalytics()">Refresh Analytics</button>
@@ -498,63 +540,34 @@
         <div class="meta">Analytics auto-refresh every 15 seconds.</div>
       </div>
     </div>
-
-    <div class="card">
-      <h2>History Intelligence</h2>
-
-      <div class="controls-row">
-        <button onclick="loadHistory()">Refresh History</button>
-
-        <select id="typeFilter" onchange="loadHistory()">
-          <option value="">All Types</option>
-          <option value="incident">Incident</option>
-          <option value="infrastructure">Infrastructure</option>
-          <option value="waste">Waste</option>
-          <option value="transport">Transport</option>
-          <option value="weather">Weather</option>
-        </select>
-
-        <select id="sourceFilter" onchange="loadHistory()">
-          <option value="">All Sources</option>
-          <option value="Police.uk">Police.uk</option>
-          <option value="Open-Meteo">Open-Meteo</option>
-          <option value="Street Manager">Street Manager</option>
-          <option value="Simulation">Simulation</option>
-        </select>
-      </div>
-
-      <div id="historyPanel">
-        <div class="meta">History auto-refreshes every 10 seconds.</div>
-      </div>
-    </div>
   </div>
 
   <div class="card">
-    <h2>Blackpool Zones</h2>
-
-    <div class="schematic-map">
-      <div class="coastline">
-        <div class="map-zone" id="mapzone-North-Shore">
-          <strong>North Shore</strong>
-          <div class="meta">Coastal north / promenade pressure</div>
-        </div>
-
-        <div class="map-zone" id="mapzone-Town-Centre">
-          <strong>Town Centre</strong>
-          <div class="meta">Central incident and civic activity</div>
-        </div>
-
-        <div class="map-zone" id="mapzone-South-Shore">
-          <strong>South Shore</strong>
-          <div class="meta">Coastal central/south pressure</div>
-        </div>
-
-        <div class="map-zone" id="mapzone-Blackpool-South">
-          <strong>Blackpool South</strong>
-          <div class="meta">Southern transport and weather area</div>
-        </div>
-      </div>
+    <h2>History Intelligence</h2>
+    <div class="controls-row">
+      <button onclick="loadHistory()">Refresh History</button>
+      <select id="typeFilter" onchange="loadHistory()">
+        <option value="">All Types</option><option value="incident">Incident</option><option value="infrastructure">Infrastructure</option><option value="waste">Waste</option><option value="transport">Transport</option><option value="weather">Weather</option>
+      </select>
+      <select id="sourceFilter" onchange="loadHistory()">
+        <option value="">All Sources</option><option value="Police.uk">Police.uk</option><option value="Open-Meteo">Open-Meteo</option><option value="Street Manager">Street Manager</option><option value="Simulation">Simulation</option>
+      </select>
     </div>
+    <div id="historyPanel">
+      <div class="meta">History auto-refreshes every 10 seconds.</div>
+    </div>
+  </div>
+
+  <div class="section-label">Developer Diagnostics</div>
+  <div class="panel" id="commsCard">
+    <h2>Agent Comms Log</h2>
+    <div class="controls-row">
+      <button class="secondary" onclick="pauseComms()">Pause Log</button>
+      <button class="secondary" onclick="resumeComms()">Resume Log</button>
+      <button class="secondary" onclick="clearVisibleComms()">Clear Visible Log</button>
+    </div>
+    <div class="meta" id="commsState">Live updates active.</div>
+    <div id="agentComms"><div class="meta">No internal agent messages yet.</div></div>
   </div>
 
   <div class="card" id="developerControlsCard">
@@ -592,6 +605,7 @@ let latestInsights = [];
 
 if (!IS_LOCAL_FRONTEND) {
   document.getElementById("developerControlsCard").style.display = "none";
+  document.getElementById("commsCard").style.display = "none";
 }
 
 function riskClass(value) {
@@ -686,12 +700,19 @@ function renderInsights(insights) {
   const sorted = [...latestInsights].reverse();
   document.getElementById("insightsPanel").innerHTML = sorted.map(item => `
     <div class="insight-card ${item.severity || "info"}">
-      <div class="agent-badge">${item.agent || "Insight Agent"}</div>
-      <strong>${item.title || "Insight"}</strong>
-      <div>${item.summary || "No summary provided."}</div>
-      <div class="meta">Pattern: ${item.pattern_type || "general"} | Severity: ${(item.severity || "info").toUpperCase()} | Confidence: ${Math.round((item.confidence || 0) * 100)}%</div>
-      ${item.location ? `<div class="meta">Location: ${item.location}</div>` : ""}
-      ${(item.evidence || []).length ? `<div class="meta">Evidence: ${(item.evidence || []).join(" • ")}</div>` : ""}
+      <div>
+        <span class="agent-badge">${item.agent || "Insight Agent"}</span>
+        <span class="severity-badge ${item.severity || "info"}">${item.severity || "info"}</span>
+      </div>
+      <div class="insight-title"><strong>${item.title || "Insight"}</strong></div>
+      <div class="insight-summary">${item.summary || "No summary provided."}</div>
+      <div class="insight-meta meta">
+        <div>Confidence: ${Math.round((item.confidence || 0) * 100)}%</div>
+        <div>Pattern: ${item.pattern_type || "general"}</div>
+        ${item.location ? `<div>Location: ${item.location}</div>` : ""}
+        ${item.source_context ? `<div>Source note: ${item.source_context}</div>` : ""}
+      </div>
+      ${(item.evidence || []).length ? `<ul class="insight-evidence">${(item.evidence || []).map(line => `<li>${line}</li>`).join("")}</ul>` : ""}
       ${item.suggested_action ? `<div class="meta">Suggested action: ${item.suggested_action}</div>` : ""}
       <div class="meta">${item.timestamp || ""}</div>
     </div>
