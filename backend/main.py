@@ -3,7 +3,7 @@ import hashlib
 import json
 from datetime import datetime, timedelta
 
-from fastapi import FastAPI, WebSocket, Request
+from fastapi import FastAPI, WebSocket, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from agents.cascade import emergency_pressure_warden, mobility_warden, public_health_warden
@@ -12,7 +12,9 @@ from agents.insights import generate_insights
 from agents.trend import trend_warden
 from agents.zone import critical_zone_warden, response_warden
 from config import (
+    ADMIN_TOKEN,
     ALLOW_SIMULATION,
+    ENVIRONMENT,
     MAX_NEW_EVENTS_PER_FETCH,
     SOURCE_REFRESH_SECONDS,
     WEBSOCKET_TICK_SECONDS,
@@ -123,6 +125,7 @@ def log_insight(
     severity="info",
     evidence=None,
     suggested_action=None,
+    source_context=None,
     public_safe=True,
 ):
     insight = {
@@ -136,6 +139,7 @@ def log_insight(
         "severity": severity,
         "evidence": evidence or [],
         "suggested_action": suggested_action,
+        "source_context": source_context,
         "public_safe": public_safe,
     }
 
@@ -256,7 +260,9 @@ def queue_webhook_event(event):
         real_event_queue.append(event)
 
         source_health["Street Manager"]["status"] = "connected"
-        source_health["Street Manager"]["message"] = "Live webhook received from Street Manager."
+        source_health["Street Manager"]["message"] = (
+            "Webhook endpoints are live. Street Manager payload received."
+        )
         source_health["Street Manager"]["records_returned"] += 1
         source_health["Street Manager"]["events_emitted"] += 1
         source_health["Street Manager"]["new_events_queued"] += 1
@@ -272,7 +278,9 @@ def queue_webhook_event(event):
         duplicate_count += 1
 
         source_health["Street Manager"]["status"] = "connected"
-        source_health["Street Manager"]["message"] = "Duplicate Street Manager webhook received and ignored."
+        source_health["Street Manager"]["message"] = (
+            "Webhook endpoints are live. Duplicate Street Manager payload received and ignored."
+        )
         source_health["Street Manager"]["records_returned"] += 1
         source_health["Street Manager"]["duplicates_skipped"] += 1
         source_health["Street Manager"]["last_checked"] = datetime.now().isoformat()
@@ -363,6 +371,44 @@ def force_source_refresh():
     log_agent("Developer Controls", f"Manual source refresh queued {len(real_event_queue)} events.", "info")
 
     return len(real_event_queue)
+
+
+def _is_local_request(request: Request):
+    host = (request.client.host or "").lower() if request.client else ""
+    forwarded_for = request.headers.get("x-forwarded-for", "").lower()
+    forwarded_host = request.headers.get("x-forwarded-host", "").lower()
+
+    if host in {"127.0.0.1", "localhost", "::1"}:
+        return True
+
+    if "127.0.0.1" in forwarded_for or "localhost" in forwarded_for:
+        return True
+
+    if "localhost" in forwarded_host:
+        return True
+
+    return False
+
+
+def require_dev_access(request: Request):
+    is_local_env = ENVIRONMENT == "local"
+    is_local_request = _is_local_request(request)
+
+    if ADMIN_TOKEN:
+        supplied_token = request.headers.get("x-admin-token")
+
+        if supplied_token != ADMIN_TOKEN:
+            raise HTTPException(status_code=403, detail="Developer controls require a valid admin token.")
+
+        return
+
+    if is_local_env and is_local_request:
+        return
+
+    raise HTTPException(
+        status_code=403,
+        detail="Developer controls are disabled outside local mode when ADMIN_TOKEN is not configured.",
+    )
 
 
 def get_next_event():
@@ -677,7 +723,8 @@ async def street_manager_section_58(request: Request):
 
 
 @app.post("/dev/force-refresh")
-def dev_force_refresh():
+def dev_force_refresh(request: Request):
+    require_dev_access(request)
     queued = force_source_refresh()
 
     return {
@@ -688,7 +735,8 @@ def dev_force_refresh():
 
 
 @app.post("/dev/clear-live-feed")
-def dev_clear_live_feed():
+def dev_clear_live_feed(request: Request):
+    require_dev_access(request)
     history.clear()
     log_agent("Developer Controls", "Live feed memory cleared.", "warning")
 
@@ -699,7 +747,8 @@ def dev_clear_live_feed():
 
 
 @app.post("/dev/clear-risk-map")
-def dev_clear_risk_map():
+def dev_clear_risk_map(request: Request):
+    require_dev_access(request)
     risk_map.clear()
     log_agent("Developer Controls", "Risk map cleared.", "warning")
 
@@ -710,7 +759,8 @@ def dev_clear_risk_map():
 
 
 @app.post("/dev/reset-database")
-def dev_reset_database():
+def dev_reset_database(request: Request):
+    require_dev_access(request)
     global duplicate_count
     global last_source_fetch_time
 
@@ -862,6 +912,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     severity=candidate.get("severity", "info"),
                     evidence=candidate.get("evidence", []),
                     suggested_action=candidate.get("suggested_action"),
+                    source_context=candidate.get("source_context"),
                     public_safe=candidate.get("public_safe", True),
                 )
 
