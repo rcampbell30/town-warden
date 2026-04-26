@@ -14,7 +14,8 @@ SQLite is suitable for local development and demos. Production should use Postgr
 
 ## Developer controls
 
-The `/dev/*` endpoints are for local workflow and are protected in production using `ADMIN_TOKEN` (or blocked outside local mode if no token is configured).
+The `/dev/*` endpoints are for local workflow and diagnostics only.
+In production (`ENVIRONMENT=production`), these routes require `x-admin-token` matching `ADMIN_TOKEN`.
 
 ## Street Manager
 
@@ -24,7 +25,13 @@ Street Manager webhook endpoints are implemented, but live integration is pendin
 
 Pattern Intelligence insights are currently rule-based heuristics, not machine-learning predictions.
 
-Insights are developer-facing, source-limited early indicators and should not be treated as official public authority conclusions.
+Insights in both dashboards are source-limited, experimental rule-based analysis and should not be treated as official public authority conclusions.
+
+## Dashboard split (v4)
+
+v4 introduces a Public Dashboard and a Developer Dashboard.
+The Public Dashboard intentionally simplifies wording and hides raw controls/logs.
+The Developer Dashboard keeps full diagnostics, history filters, raw metadata, and local-only controls.
 
 ## Open-Meteo reliability
 

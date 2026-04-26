@@ -373,41 +373,18 @@ def force_source_refresh():
     return len(real_event_queue)
 
 
-def _is_local_request(request: Request):
-    host = (request.client.host or "").lower() if request.client else ""
-    forwarded_for = request.headers.get("x-forwarded-for", "").lower()
-    forwarded_host = request.headers.get("x-forwarded-host", "").lower()
-
-    if host in {"127.0.0.1", "localhost", "::1"}:
-        return True
-
-    if "127.0.0.1" in forwarded_for or "localhost" in forwarded_for:
-        return True
-
-    if "localhost" in forwarded_host:
-        return True
-
-    return False
-
-
 def require_dev_access(request: Request):
-    is_local_env = ENVIRONMENT == "local"
-    is_local_request = _is_local_request(request)
-
-    if ADMIN_TOKEN:
-        supplied_token = request.headers.get("x-admin-token")
-
-        if supplied_token != ADMIN_TOKEN:
-            raise HTTPException(status_code=403, detail="Developer controls require a valid admin token.")
-
+    if ENVIRONMENT == "local":
         return
 
-    if is_local_env and is_local_request:
+    supplied_token = request.headers.get("x-admin-token")
+
+    if ADMIN_TOKEN and supplied_token == ADMIN_TOKEN:
         return
 
     raise HTTPException(
         status_code=403,
-        detail="Developer controls are disabled outside local mode when ADMIN_TOKEN is not configured.",
+        detail="Developer controls require a valid admin token.",
     )
 
 
@@ -520,7 +497,9 @@ def runtime_status():
         "live_history_count": len(history),
         "risk_map": risk_map,
         "agent_log_count": len(agent_log),
-        "insights_count": len(insights),
+        "insight_count": len(insights),
+        "environment": ENVIRONMENT,
+        "public_dev_routes_protected": ENVIRONMENT == "production",
     }
 
 
@@ -542,6 +521,11 @@ def get_source_health():
         "source_health": source_health,
         **runtime_status(),
     }
+
+
+@app.get("/runtime-status")
+def get_runtime_status():
+    return runtime_status()
 
 
 @app.get("/agent-log")

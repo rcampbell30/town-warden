@@ -24,6 +24,7 @@ It is not yet suitable for unsupervised public production use.
 - WebSocket live event stream
 - SQLite persistence
 - Real-data-only mode
+- v4 split dashboard modes (Public Dashboard and Developer Dashboard)
 - Police.uk connector
 - Open-Meteo connector
 - Street Manager connector stub
@@ -139,7 +140,7 @@ docs/PRODUCTION_PLAN.md
 - Current Blackpool zone mapping is rough coordinate mapping, not GIS boundary mapping.
 - SQLite is for local development.
 - Agent Insights are rule-based, source-limited, and experimental.
-- Developer controls are protected in production via `ADMIN_TOKEN` or restricted local mode.
+- Developer routes are protected in production (`ENVIRONMENT=production` requires `x-admin-token` matching `ADMIN_TOKEN`).
 - Street Manager webhook routes are implemented but waiting for external approval and live payload notifications.
 - Open-Meteo is handled with rate-limit-aware source health messaging.
 
@@ -148,6 +149,7 @@ docs/PRODUCTION_PLAN.md
 - Set `ENVIRONMENT=production` on Render.
 - Set `ADMIN_TOKEN` to protect `/dev/*` routes with `x-admin-token`.
 - Never expose admin tokens in frontend code.
+- Keep the Public Dashboard language cautious: processed signals and source-limited insights are experimental rule-based analysis.
 
 ## Licence
 
