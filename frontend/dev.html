@@ -218,11 +218,16 @@
     return row?.count || 0;
   }
 
+  function latestStreetMetadata(event) {
+    return event?.metadata || {};
+  }
+
   function renderStreetManagerIngestion() {
     const info = latestSourceHealth["Street Manager"] || {};
     const status = String(info.status || "unknown");
     const receiving = status.toLowerCase() === "connected" || Number(info.records_returned || 0) > 0 || streetManagerAnalyticsCount() > 0;
     const latestStreetEvent = latestHistory.find(row => row.source === "Street Manager");
+    const metadata = latestStreetMetadata(latestStreetEvent);
     const totalStreetEvents = streetManagerAnalyticsCount();
 
     document.getElementById("streetManagerIngestion").innerHTML = `
@@ -235,6 +240,10 @@
       <div class="list-item">
         <strong>Latest Street Manager message</strong>
         <div class="meta">last received timestamp: ${formatTime(latestStreetEvent?.timestamp || info.last_checked)}</div>
+        <div class="meta">latest event text: ${latestStreetEvent?.text || "n/a"}</div>
+        <div class="meta">latest topic: ${metadata.topic || "n/a"}</div>
+        <div class="meta">latest mapped street/location: ${metadata.street_name || metadata.location_description || latestStreetEvent?.location || "n/a"}</div>
+        <div class="meta">latest reference: ${metadata.reference || metadata.permit_reference || metadata.works_reference || metadata.activity_reference || "n/a"}</div>
         <div class="meta">records returned: ${formatValue(info.records_returned)} | events emitted: ${formatValue(info.events_emitted)} | new queued: ${formatValue(info.new_events_queued)}</div>
         <div class="meta">latest message: ${info.message || "n/a"}</div>
       </div>

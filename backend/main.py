@@ -233,49 +233,281 @@ def make_payload_fingerprint(prefix, payload):
     return f"{prefix}:{digest}"
 
 
-def normalise_street_manager_payload(kind, payload):
+def normalise_field_name(value):
+    return "".join(char for char in str(value).lower() if char.isalnum())
+
+
+def iter_mapping_items(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield key, item
+            yield from iter_mapping_items(item)
+    elif isinstance(value, list):
+        for item in value[:25]:
+            yield from iter_mapping_items(item)
+
+
+def get_nested_field(payload, aliases):
+    """
+    Find a field anywhere in a Street Manager payload using common naming variants.
+
+    Street Manager messages can arrive as nested JSON inside an AWS SNS envelope and
+    field names vary between camelCase, snake_case, and occasionally short labels.
+    """
+
+    wanted = {normalise_field_name(alias) for alias in aliases}
+
+    for key, value in iter_mapping_items(payload):
+        if normalise_field_name(key) in wanted and value not in (None, "", [], {}):
+            return value
+
+    return None
+
+
+def parse_json_if_possible(value):
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+
+    return value
+
+
+def unwrap_street_manager_message(payload):
+    if not isinstance(payload, dict):
+        return {"raw_payload": payload}, False
+
+    message = parse_json_if_possible(payload.get("Message"))
+
+    if isinstance(message, dict):
+        return message, True
+
+    return payload, False
+
+
+def first_present(*values):
+    for value in values:
+        if value not in (None, "", [], {}):
+            return value
+    return None
+
+
+def as_text(value):
+    if value in (None, "", [], {}):
+        return None
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, sort_keys=True)
+    return str(value)
+
+
+def extract_coordinates(payload):
+    latitude = get_nested_field(payload, ["latitude", "lat", "y"])
+    longitude = get_nested_field(payload, ["longitude", "lng", "lon", "x"])
+
+    if latitude is not None and longitude is not None:
+        try:
+            return {
+                "latitude": float(latitude),
+                "longitude": float(longitude),
+            }
+        except (TypeError, ValueError):
+            pass
+
+    coordinates = get_nested_field(payload, ["coordinates", "coordinate", "geometry"])
+
+    if isinstance(coordinates, dict):
+        lon = first_present(coordinates.get("longitude"), coordinates.get("lng"), coordinates.get("lon"), coordinates.get("x"))
+        lat = first_present(coordinates.get("latitude"), coordinates.get("lat"), coordinates.get("y"))
+        if lat is not None and lon is not None:
+            try:
+                return {
+                    "latitude": float(lat),
+                    "longitude": float(lon),
+                }
+            except (TypeError, ValueError):
+                return coordinates
+
+    return coordinates if coordinates not in (None, "", [], {}) else None
+
+
+def compact_metadata(metadata):
+    return {key: value for key, value in metadata.items() if value not in (None, "", [], {})}
+
+
+def inspect_street_manager_payload(payload, topic, metadata, unwrapped_sns_message):
+    """
+    Log a small production-safe summary rather than dumping the whole payload.
+
+    This helps inspect live message shape without exposing oversized raw payloads or
+    leaving permanent full-body logging in Render.
+    """
+
+    field_names = []
+    if isinstance(payload, dict):
+        field_names = sorted(str(key) for key in payload.keys())[:20]
+
+    summary = {
+        "topic": topic,
+        "unwrapped_sns_message": unwrapped_sns_message,
+        "top_level_fields": field_names,
+        "reference": metadata.get("reference"),
+        "street_name": metadata.get("street_name"),
+        "activity_type": metadata.get("activity_type"),
+        "works_category": metadata.get("works_category"),
+        "start_date": metadata.get("start_date"),
+        "end_date": metadata.get("end_date"),
+    }
+
+    print(f"Street Manager payload summary: {json.dumps(summary, default=str)}", flush=True)
+
+
+def format_street_manager_text(topic, metadata):
+    topic_label = {
+        "permit": "permit",
+        "activity": "activity",
+        "section-58": "Section 58",
+    }.get(topic, topic)
+
+    location = first_present(
+        metadata.get("street_name"),
+        metadata.get("location_description"),
+        metadata.get("town_area"),
+        "Blackpool",
+    )
+
+    detail = first_present(
+        metadata.get("activity_type"),
+        metadata.get("works_category"),
+        metadata.get("traffic_management_type"),
+    )
+
+    date_range = None
+    if metadata.get("start_date") and metadata.get("end_date"):
+        date_range = f"{metadata['start_date']} to {metadata['end_date']}"
+    elif metadata.get("start_date"):
+        date_range = f"from {metadata['start_date']}"
+    elif metadata.get("end_date"):
+        date_range = f"until {metadata['end_date']}"
+
+    text = f"Street works {topic_label} on {location}"
+
+    extras = [value for value in [detail, date_range] if value]
+    if extras:
+        text += f": {', '.join(str(value) for value in extras)}"
+
+    if metadata.get("reference"):
+        text += f" ({metadata['reference']})"
+
+    return text
+
+
+def normalize_street_manager_payload(payload, topic):
     """
     Converts a Street Manager webhook payload into a Town Warden event.
 
-    This is defensive because we need to inspect real Street Manager payloads
-    before doing more accurate roadworks mapping.
+    Mapping assumptions:
+    - AWS SNS notification envelopes may wrap the useful Street Manager JSON in
+      Message, so we unwrap it before looking for roadworks fields.
+    - Field names vary, so extraction uses aliases and recursive lookup.
+    - Missing fields are expected; location and text fall back gracefully.
     """
 
-    if not isinstance(payload, dict):
-        payload = {"raw_payload": payload}
+    street_payload, unwrapped_sns_message = unwrap_street_manager_message(payload)
 
-    possible_id = (
-        payload.get("id")
-        or payload.get("permitReferenceNumber")
-        or payload.get("activityId")
-        or payload.get("worksReference")
-        or payload.get("reference")
-        or payload.get("eventId")
-        or payload.get("notificationId")
-    )
+    permit_reference = as_text(get_nested_field(street_payload, [
+        "permitReferenceNumber", "permitReference", "permit_reference", "permitRef", "permit_ref",
+    ]))
+    works_reference = as_text(get_nested_field(street_payload, [
+        "worksReference", "works_reference", "worksReferenceNumber", "workReference", "work_reference",
+    ]))
+    activity_reference = as_text(get_nested_field(street_payload, [
+        "activityReference", "activity_reference", "activityId", "activity_id", "activityReferenceNumber",
+    ]))
+    street_manager_id = as_text(get_nested_field(street_payload, [
+        "id", "eventId", "notificationId", "notification_id", "messageId",
+    ]))
 
+    street_name = as_text(get_nested_field(street_payload, [
+        "streetName", "street_name", "roadName", "road_name", "street", "usrnStreetName",
+    ]))
+    location_description = as_text(get_nested_field(street_payload, [
+        "locationDescription", "location_description", "location", "areaDescription", "siteLocation",
+    ]))
+    town_area = as_text(get_nested_field(street_payload, [
+        "town", "area", "townArea", "town_area", "locality", "district",
+    ]))
+    activity_type = as_text(get_nested_field(street_payload, [
+        "activityType", "activity_type", "eventType", "event_type", "notificationType",
+    ]))
+    works_category = as_text(get_nested_field(street_payload, [
+        "worksCategory", "works_category", "workCategory", "category",
+    ]))
+    traffic_management_type = as_text(get_nested_field(street_payload, [
+        "trafficManagementType", "traffic_management_type", "trafficManagement", "tmType",
+    ]))
+    start_date = as_text(get_nested_field(street_payload, [
+        "startDate", "start_date", "proposedStartDate", "actualStartDate", "worksStartDate",
+    ]))
+    end_date = as_text(get_nested_field(street_payload, [
+        "endDate", "end_date", "proposedEndDate", "actualEndDate", "worksEndDate",
+    ]))
+
+    metadata = compact_metadata({
+        "topic": topic,
+        "permit_reference": permit_reference,
+        "works_reference": works_reference,
+        "activity_reference": activity_reference,
+        "street_manager_id": street_manager_id,
+        "reference": first_present(permit_reference, works_reference, activity_reference, street_manager_id),
+        "street_name": street_name,
+        "location_description": location_description,
+        "town_area": town_area,
+        "activity_type": activity_type,
+        "works_category": works_category,
+        "traffic_management_type": traffic_management_type,
+        "start_date": start_date,
+        "end_date": end_date,
+        "coordinates": extract_coordinates(street_payload),
+        "responsible_organisation": as_text(get_nested_field(street_payload, [
+            "responsibleOrganisation", "responsible_organisation", "promoterOrganisation", "organisation",
+        ])),
+        "highway_authority": as_text(get_nested_field(street_payload, [
+            "highwayAuthority", "highway_authority", "authority", "highwayAuthorityName",
+        ])),
+        "sns_message_id": as_text(payload.get("MessageId")) if isinstance(payload, dict) else None,
+    })
+
+    inspect_street_manager_payload(street_payload, topic, metadata, unwrapped_sns_message)
+
+    stable_id = metadata.get("reference")
     source_event_id = (
-        f"streetmanager:{kind}:{possible_id}"
-        if possible_id
-        else make_payload_fingerprint(f"streetmanager:{kind}", payload)
+        f"streetmanager:{topic}:{stable_id}"
+        if stable_id
+        else make_payload_fingerprint(f"streetmanager:{topic}", street_payload)
     )
 
-    works_reference = (
-        payload.get("worksReference")
-        or payload.get("permitReferenceNumber")
-        or payload.get("reference")
-        or "unknown reference"
+    location = first_present(
+        street_name,
+        location_description,
+        town_area,
+        "Blackpool",
     )
 
     return {
         "type": "infrastructure",
-        "location": "Town Centre",
-        "text": f"Street Manager {kind} notification received ({works_reference})",
+        "location": location,
+        "text": format_street_manager_text(topic, metadata),
         "timestamp": datetime.now().isoformat(),
         "source": "Street Manager",
         "source_event_id": source_event_id,
         "real_data": True,
+        "metadata": metadata,
     }
+
+
+def normalise_street_manager_payload(kind, payload):
+    return normalize_street_manager_payload(payload, kind)
 
 
 def queue_webhook_event(event):
@@ -327,9 +559,7 @@ def queue_webhook_event(event):
 
 async def handle_street_manager_webhook(kind, request):
     raw_body = await request.body()
-    raw_text = raw_body.decode("utf-8", errors="replace")
-
-    print(f"Street Manager raw webhook body [{kind}]: {raw_text}", flush=True)
+    print(f"Street Manager webhook body received [{kind}]: {len(raw_body)} bytes", flush=True)
 
     try:
         payload = json.loads(raw_body)
@@ -674,7 +904,7 @@ def get_map_data():
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT source_event_id, type, source, location, text, timestamp
+        SELECT source_event_id, type, source, location, text, timestamp, metadata
         FROM events
         ORDER BY id DESC
         LIMIT 120
@@ -690,9 +920,26 @@ def get_map_data():
     now = datetime.now()
 
     for idx, row in enumerate(rows):
-        signal_id, signal_type, source, location, text, timestamp = row
+        signal_id, signal_type, source, location, text, timestamp, metadata_raw = row
+        try:
+            metadata = json.loads(metadata_raw) if metadata_raw else {}
+        except json.JSONDecodeError:
+            metadata = {}
+
         zone = infer_zone_from_location(location)
         zone_name = zone["name"]
+        coordinates = metadata.get("coordinates") if isinstance(metadata, dict) else None
+        lat = zone["lat"]
+        lng = zone["lng"]
+        approximate = True
+
+        if isinstance(coordinates, dict):
+            try:
+                lat = float(coordinates.get("latitude"))
+                lng = float(coordinates.get("longitude"))
+                approximate = False
+            except (TypeError, ValueError):
+                pass
 
         zone_signal_counts[zone_name] += 1
         zone_source_counts[zone_name][source] = zone_source_counts[zone_name].get(source, 0) + 1
@@ -712,12 +959,13 @@ def get_map_data():
             "zone": zone_name,
             "title": f"{signal_type or 'Signal'} in {zone_name}",
             "description": text or "No additional source-limited detail.",
-            "lat": zone["lat"],
-            "lng": zone["lng"],
+            "lat": lat,
+            "lng": lng,
             "timestamp": timestamp,
             "severity": "info",
-            "is_approximate": True,
+            "is_approximate": approximate,
             "approximate_note": "Coordinates are currently approximate and represent zone centres.",
+            "metadata": metadata,
         })
 
     zones = []
@@ -780,7 +1028,7 @@ def get_history():
     cursor = conn.cursor()
 
     cursor.execute("""
-        SELECT timestamp, type, location, text, source, real_data, source_event_id
+        SELECT timestamp, type, location, text, source, real_data, source_event_id, metadata
         FROM events
         ORDER BY id DESC
         LIMIT 50
@@ -789,8 +1037,15 @@ def get_history():
     rows = cursor.fetchall()
     conn.close()
 
-    return [
-        {
+    history_rows = []
+
+    for row in rows:
+        try:
+            metadata = json.loads(row[7]) if row[7] else {}
+        except json.JSONDecodeError:
+            metadata = {}
+
+        history_rows.append({
             "timestamp": row[0],
             "type": row[1],
             "location": row[2],
@@ -798,9 +1053,10 @@ def get_history():
             "source": row[4],
             "real_data": bool(row[5]),
             "source_event_id": row[6],
-        }
-        for row in rows
-    ]
+            "metadata": metadata,
+        })
+
+    return history_rows
 
 
 @app.get("/analytics")

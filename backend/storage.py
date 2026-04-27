@@ -65,6 +65,12 @@ def migrate_database(cursor):
             ADD COLUMN source_event_id TEXT
         """)
 
+    if "metadata" not in columns:
+        cursor.execute("""
+            ALTER TABLE events
+            ADD COLUMN metadata TEXT
+        """)
+
     cursor.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS idx_events_source_event_id
         ON events(source_event_id)
@@ -101,11 +107,12 @@ def save_event(event):
                 type,
                 location,
                 text,
-                source,
-                source_event_id,
-                real_data
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            source,
+            source_event_id,
+            real_data,
+            metadata
+        )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             event.get("timestamp", datetime.now().isoformat()),
             event.get("type"),
@@ -114,6 +121,7 @@ def save_event(event):
             event.get("source", "unknown"),
             event.get("source_event_id"),
             1 if event.get("real_data") else 0,
+            json.dumps(event.get("metadata") or {}),
         ))
         conn.commit()
         saved = True
