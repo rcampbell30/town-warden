@@ -44,6 +44,14 @@
     }
 
     .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .metric {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface-2);
+      padding: 10px;
+    }
+    .metric strong { display: block; font-size: 1.25rem; }
 
     .list-item {
       border: 1px solid var(--border);
@@ -87,6 +95,7 @@
 
     @media (max-width: 980px) {
       .grid-2 { grid-template-columns: 1fr; }
+      .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .topbar { flex-direction: column; }
     }
   </style>
@@ -113,6 +122,12 @@
         <button onclick="loadAnalytics()">Refresh Analytics</button>
         <div id="devAnalytics" class="meta">Waiting for analytics intelligence.</div>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>Street Manager Ingestion</h2>
+      <button onclick="refreshStreetManagerIngestion()">Refresh Ingestion</button>
+      <div id="streetManagerIngestion" class="meta">Waiting for Street Manager ingestion diagnostics.</div>
     </div>
 
     <div class="card">
@@ -179,10 +194,51 @@
   let ws = null;
   let latestInsights = [];
   let latestComms = [];
+  let latestSourceHealth = {};
+  let latestAnalytics = {};
+  let latestHistory = [];
   let commsPaused = false;
 
   function updateHeroStatus(connected) {
     document.getElementById("statusPill").innerText = connected ? "Backend Connected" : "Backend Disconnected";
+  }
+
+  function formatValue(value) {
+    return value ?? 0;
+  }
+
+  function formatTime(value) {
+    if (!value) return "n/a";
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
+  }
+
+  function streetManagerAnalyticsCount() {
+    const row = (latestAnalytics.events_by_source || []).find(item => item.source === "Street Manager");
+    return row?.count || 0;
+  }
+
+  function renderStreetManagerIngestion() {
+    const info = latestSourceHealth["Street Manager"] || {};
+    const status = String(info.status || "unknown");
+    const receiving = status.toLowerCase() === "connected" || Number(info.records_returned || 0) > 0 || streetManagerAnalyticsCount() > 0;
+    const latestStreetEvent = latestHistory.find(row => row.source === "Street Manager");
+    const totalStreetEvents = streetManagerAnalyticsCount();
+
+    document.getElementById("streetManagerIngestion").innerHTML = `
+      <div class="metric-grid">
+        <div class="metric"><span>Payloads received</span><strong>${receiving ? "yes" : "no"}</strong></div>
+        <div class="metric"><span>Status</span><strong>${status}</strong></div>
+        <div class="metric"><span>Total SM events</span><strong>${totalStreetEvents}</strong></div>
+        <div class="metric"><span>Duplicates</span><strong>${formatValue(info.duplicates_skipped)}</strong></div>
+      </div>
+      <div class="list-item">
+        <strong>Latest Street Manager message</strong>
+        <div class="meta">last received timestamp: ${formatTime(latestStreetEvent?.timestamp || info.last_checked)}</div>
+        <div class="meta">records returned: ${formatValue(info.records_returned)} | events emitted: ${formatValue(info.events_emitted)} | new queued: ${formatValue(info.new_events_queued)}</div>
+        <div class="meta">latest message: ${info.message || "n/a"}</div>
+      </div>
+    `;
   }
 
   function collapseIdle(logs) {
@@ -242,46 +298,52 @@
 
   function renderDevSourceHealth(payload) {
     const sources = payload.sources || payload.source_health || {};
+    latestSourceHealth = sources;
     const entries = Object.entries(sources);
     document.getElementById("devSourceHealth").innerHTML = entries.length ? entries.map(([name, info]) => `
       <div class="list-item">
         <strong>${name}</strong>
         <div class="meta">status: ${info.status || "unknown"}</div>
         <div class="meta">records returned: ${info.records_returned ?? 0}</div>
-        <div class="meta">candidate events: ${info.events_emitted ?? 0}</div>
+        <div class="meta">candidate events / events emitted: ${info.events_emitted ?? 0}</div>
         <div class="meta">new queued: ${info.new_events_queued ?? 0}</div>
         <div class="meta">duplicates skipped: ${info.duplicates_skipped ?? 0}</div>
         <div class="meta">last checked: ${info.last_checked || "n/a"}</div>
         <div class="meta">message: ${info.message || ""}</div>
       </div>
     `).join("") : `<div class="meta">No source health yet.</div>`;
+    renderStreetManagerIngestion();
   }
 
   async function loadSourceHealth() {
     try {
       const response = await fetch(`${API_BASE}/source-health`);
+      if (!response.ok) throw new Error("source health unavailable");
       const data = await response.json();
       renderDevSourceHealth(data);
     } catch {
-      document.getElementById("devSourceHealth").innerHTML = `<div class="meta">Source health unavailable.</div>`;
+      document.getElementById("devSourceHealth").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
     }
   }
 
   async function loadInsights() {
     try {
       const response = await fetch(`${API_BASE}/insights`);
+      if (!response.ok) throw new Error("insights unavailable");
       const data = await response.json();
       latestInsights = data.insights || [];
       renderDevInsights();
     } catch {
-      document.getElementById("devInsights").innerHTML = `<div class="meta">Insights unavailable.</div>`;
+      document.getElementById("devInsights").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
     }
   }
 
   async function loadAnalytics() {
     try {
       const response = await fetch(`${API_BASE}/analytics`);
+      if (!response.ok) throw new Error("analytics unavailable");
       const data = await response.json();
+      latestAnalytics = data;
       const typeRows = (data.events_by_type || []).map(row => `<li>${row.type}: ${row.count}</li>`).join("");
       const sourceRows = (data.events_by_source || []).map(row => `<li>${row.source}: ${row.count}</li>`).join("");
       const locations = (data.top_locations || []).map(row => `<li>${row.location}: ${row.count}</li>`).join("");
@@ -294,8 +356,9 @@
         <div class="list-item"><strong>Events by source</strong><ul>${sourceRows || "<li>None</li>"}</ul></div>
         <div class="list-item"><strong>Top locations</strong><ul>${locations || "<li>None</li>"}</ul></div>
       `;
+      renderStreetManagerIngestion();
     } catch {
-      document.getElementById("devAnalytics").innerHTML = `<div class="meta">Analytics unavailable.</div>`;
+      document.getElementById("devAnalytics").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
     }
   }
 
@@ -304,7 +367,10 @@
       const typeFilter = document.getElementById("typeFilter").value;
       const sourceFilter = document.getElementById("sourceFilter").value;
       const response = await fetch(`${API_BASE}/history`);
+      if (!response.ok) throw new Error("history unavailable");
       let rows = await response.json();
+      latestHistory = Array.isArray(rows) ? rows : [];
+      rows = latestHistory;
       if (typeFilter) rows = rows.filter(row => row.type === typeFilter);
       if (sourceFilter) rows = rows.filter(row => row.source === sourceFilter);
 
@@ -312,12 +378,19 @@
         <div class="list-item">
           <strong>${String(row.type).toUpperCase()}</strong> - ${row.location}
           <div>${row.text}</div>
-          <div class="meta">${row.source} • ${row.timestamp}</div>
+          <div class="meta">${row.source} | ${row.timestamp}</div>
         </div>
       `).join("") : `<div class="meta">No history matches current filters.</div>`;
+      renderStreetManagerIngestion();
     } catch {
-      document.getElementById("devHistory").innerHTML = `<div class="meta">History unavailable.</div>`;
+      document.getElementById("devHistory").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
     }
+  }
+
+  function refreshStreetManagerIngestion() {
+    loadSourceHealth();
+    loadAnalytics();
+    loadHistory();
   }
 
   async function devAction(path, confirmFirst = false) {
@@ -372,6 +445,7 @@
       renderDevInsights();
       renderAgentComms((data.agent_log || []).slice(-50));
       renderDevSourceHealth({ sources: data.source_health || data.sources || {} });
+      renderStreetManagerIngestion();
     };
   }
 
