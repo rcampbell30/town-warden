@@ -69,6 +69,11 @@ def fetch_events(update_source_health):
         lng = location_data.get("longitude")
         zone = map_blackpool_zone(lat, lng)
         street_name = street.get("name", "approximate Police.uk location")
+        coordinates = None
+        try:
+            coordinates = {"latitude": float(lat), "longitude": float(lng)}
+        except (TypeError, ValueError):
+            pass
 
         events.append({
             "type": "incident",
@@ -80,6 +85,15 @@ def fetch_events(update_source_health):
             "real_data": True,
             "zone_confidence": "rough_coordinate_mapping",
             "approx_street": street_name,
+            "metadata": {
+                "category": category,
+                "month": month,
+                "street_name": street_name,
+                "street_id": street.get("id"),
+                "coordinates": coordinates,
+                "coordinate_confidence": "approximate" if coordinates else "zone_fallback",
+                "zone_confidence": "rough_coordinate_mapping",
+            },
         })
 
     update_source_health(

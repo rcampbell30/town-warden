@@ -184,6 +184,43 @@
       overflow: hidden;
     }
 
+    .map-filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 10px;
+    }
+
+    .map-filter-bar button {
+      background: var(--surface-soft);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .map-filter-bar button.active {
+      background: var(--brand);
+      color: white;
+      border-color: var(--brand);
+    }
+
+    .map-marker {
+      display: grid;
+      place-items: center;
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      border: 2px solid white;
+      box-shadow: 0 3px 8px rgba(15, 23, 42, 0.25);
+      color: white;
+      font-weight: 800;
+      font-size: 0.72rem;
+    }
+
+    .map-marker.streetworks { background: #ea580c; }
+    .map-marker.incident { background: #2563eb; }
+    .map-marker.weather { background: #059669; }
+    .map-marker.fallback { outline: 2px dashed rgba(15, 23, 42, 0.35); }
+
     .side-panel {
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -395,8 +432,14 @@
       <h2>Blackpool Risk & Signal Map</h2>
       <div class="map-layout">
         <div>
+          <div class="map-filter-bar" aria-label="Map filters">
+            <button type="button" class="active" data-map-filter="all">All</button>
+            <button type="button" data-map-filter="streetworks">Street works</button>
+            <button type="button" data-map-filter="incidents">Incidents</button>
+            <button type="button" data-map-filter="high">High risk only</button>
+          </div>
           <div id="map" aria-label="Interactive map of Blackpool civic risk zones"></div>
-          <div class="caption">Layers can be toggled for risk overlays and source markers (Police.uk, Open‑Meteo, Street Manager).</div>
+          <div class="caption">Layers can be toggled for risk overlays and source markers (Police.uk, Open-Meteo, Street Manager). Some markers may be approximate when source coordinates are unavailable.</div>
         </div>
         <aside class="side-panel" aria-label="Selected map detail panel">
           <div class="search-wrap">
@@ -429,9 +472,9 @@
               <div class="legend-row"><span class="swatch" style="background:#f59e0b"></span> Watch</div>
               <div class="legend-row"><span class="swatch" style="background:#ef4444"></span> Elevated</div>
               <div class="legend-row"><span class="swatch" style="background:#dc2626"></span> Critical</div>
-              <div class="legend-row">🟦 Police.uk marker</div>
-              <div class="legend-row">🟩 Open‑Meteo marker</div>
-              <div class="legend-row">⬜ Street Manager marker</div>
+              <div class="legend-row"><span class="map-marker incident">IN</span> Police.uk incident marker</div>
+              <div class="legend-row"><span class="map-marker weather">WX</span> Open-Meteo context marker</div>
+              <div class="legend-row"><span class="map-marker streetworks">SW</span> Street Manager roadworks marker</div>
               <div class="layer-note">Some locations are approximate where public sources do not provide precise coordinates. This is an early indicator, not official advice.</div>
             </div>
           </section>
@@ -479,7 +522,8 @@
   let latestAnalytics = {};
   let latestRiskMap = {};
   let latestSourceHealth = {};
-  let mapData = { zones: [], signals: [], source_layers: {} };
+  let mapData = { zones: [], events: [], signals: [], source_layers: {} };
+  let activeMapFilter = "all";
   let selectedZoneId = null;
   let zoneLayersById = {};
 
@@ -705,7 +749,8 @@
   // if a signal is approximate (zone centroid), we apply deterministic offsets
   // so markers do not stack exactly on top of each other.
   function eventCoordinates(signal, index = 0) {
-    if (typeof signal.lat === "number" && typeof signal.lng === "number" && !signal.is_approximate) {
+    const confidence = coordinateConfidence(signal);
+    if (typeof signal.lat === "number" && typeof signal.lng === "number" && confidence === "exact") {
       return [signal.lat, signal.lng];
     }
     const baseLat = Number(signal.lat || 53.8166);
@@ -715,6 +760,57 @@
     return [baseLat + (step * direction), baseLng + (step * -direction)];
   }
 
+  function mapEvents() {
+    return mapData.events || mapData.signals || [];
+  }
+
+  function coordinateConfidence(signal) {
+    return signal?.coordinate_confidence || (signal?.is_approximate ? "zone_fallback" : "exact");
+  }
+
+  function coordinateConfidenceLabel(signal) {
+    return {
+      exact: "exact",
+      approximate: "approximate",
+      zone_fallback: "zone fallback"
+    }[coordinateConfidence(signal)] || "unknown";
+  }
+
+  function eventReference(signal) {
+    const metadata = signal?.metadata || {};
+    return signal?.reference || metadata.reference || metadata.permit_reference || metadata.works_reference || metadata.activity_reference || metadata.street_manager_id || "";
+  }
+
+  function eventMarkerKind(signal) {
+    const source = String(signal?.source || "").toLowerCase();
+    const type = String(signal?.type || "").toLowerCase();
+    if (source.includes("street manager") || type.includes("infrastructure")) return "streetworks";
+    if (source.includes("police") || type.includes("incident")) return "incident";
+    if (source.includes("meteo") || type.includes("weather")) return "weather";
+    return "incident";
+  }
+
+  function eventMatchesMapFilter(signal) {
+    if (activeMapFilter === "all") return true;
+    if (activeMapFilter === "streetworks") return eventMarkerKind(signal) === "streetworks";
+    if (activeMapFilter === "incidents") return eventMarkerKind(signal) === "incident";
+    if (activeMapFilter === "high") return ["high", "critical"].includes(String(signal?.severity || "").toLowerCase());
+    return true;
+  }
+
+  function markerIcon(signal) {
+    const kind = eventMarkerKind(signal);
+    const label = kind === "streetworks" ? "SW" : kind === "weather" ? "WX" : "IN";
+    const fallback = coordinateConfidence(signal) === "zone_fallback" ? " fallback" : "";
+    return L.divIcon({
+      className: "",
+      html: `<span class="map-marker ${kind}${fallback}">${label}</span>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
+      popupAnchor: [0, -15]
+    });
+  }
+
   function showZonePanel(zone) {
     if (!zone) {
       document.getElementById("selectedContext").innerHTML = "Select a zone. Clicking the map will show local signals and risk context.";
@@ -722,7 +818,7 @@
       document.getElementById("selectedSignals").innerHTML = `<div class="meta">No area selected yet.</div>`;
       return;
     }
-    const zoneSignals = mapData.signals.filter(s => s.zone === zone.name).slice(0, 5);
+    const zoneSignals = mapEvents().filter(s => s.zone === zone.name).slice(0, 5);
     document.getElementById("selectedContext").innerHTML = `
       <strong>${zone.name}</strong>
       <div class="meta">${zone.summary}</div>
@@ -746,7 +842,7 @@
       <div class="list-item">
         <strong>${escapeHtml(signalLabel(item))}</strong>
         <div>${escapeHtml(signalDescription(item))}</div>
-        <div class="caption">${escapeHtml(item.source || "Unknown")} | ${escapeHtml(formatTime(item.timestamp))} | ${item.is_approximate ? "Approximate" : "Precise"}</div>
+        <div class="caption">${escapeHtml(item.source || "Unknown")} | ${escapeHtml(formatTime(item.timestamp))} | ${coordinateConfidenceLabel(item)}</div>
       </div>
     `).join("");
   }
@@ -839,18 +935,23 @@
       zoneLayerGroup.addLayer(circle);
     });
 
-    mapData.signals.forEach((signal, idx) => {
+    mapEvents().filter(eventMatchesMapFilter).forEach((signal, idx) => {
       const coords = eventCoordinates(signal, idx);
       const sourceName = SOURCE_LABELS.includes(signal.source) ? signal.source : "Police.uk";
-      const emoji = sourceName === "Open-Meteo" ? "🟩" : sourceName === "Street Manager" ? "⬜" : "🟦";
-      const marker = L.marker(coords, { title: `${sourceName}: ${signal.zone || "Blackpool"}` });
+      const reference = eventReference(signal);
+      const marker = L.marker(coords, {
+        title: `${sourceName}: ${signal.location || signal.zone || "Blackpool"}`,
+        icon: markerIcon(signal)
+      });
       marker.bindPopup(`
-        <strong>${emoji} ${escapeHtml(signalLabel(signal))}</strong><br>
-        Source: ${sourceName}<br>
-        Zone: ${signal.zone || "Unknown"}<br>
-        Time: ${formatTime(signal.timestamp)}<br>
-        ${escapeHtml(signalDescription(signal))}<br>
-        <em>${signal.is_approximate ? "Location approximate." : ""}</em>
+        <strong>${escapeHtml(signal.title || signalLabel(signal))}</strong><br>
+        Source: ${escapeHtml(sourceName)}<br>
+        Location: ${escapeHtml(signal.location || signal.zone || "Blackpool")}<br>
+        Zone: ${escapeHtml(signal.zone || "Unknown")}<br>
+        Time: ${escapeHtml(formatTime(signal.timestamp))}<br>
+        ${reference ? `Reference: ${escapeHtml(reference)}<br>` : ""}
+        Coordinate confidence: ${escapeHtml(coordinateConfidenceLabel(signal))}<br>
+        ${escapeHtml(signalDescription(signal))}
       `);
       marker.on("click", () => {
         const zone = mapData.zones.find(z => z.name === signal.zone);
@@ -870,8 +971,8 @@
       }
     });
 
-    mapData.signals.forEach(signal => {
-      const hay = `${signal.zone || ""} ${signal.title || ""} ${signal.description || ""}`.toLowerCase();
+    mapEvents().forEach(signal => {
+      const hay = `${signal.zone || ""} ${signal.location || ""} ${signal.title || ""} ${signal.description || ""}`.toLowerCase();
       if (!q || hay.includes(q)) {
         results.push({ type: "signal", signal, label: `${signal.title || "Signal"} (${signal.source || "Source"})` });
       }
@@ -930,15 +1031,30 @@
     setTimeout(annotateLayerControls, 0);
   }
 
+  function initMapFilters() {
+    Array.from(document.querySelectorAll("button[data-map-filter]")).forEach(button => {
+      button.addEventListener("click", () => {
+        activeMapFilter = button.getAttribute("data-map-filter") || "all";
+        document.querySelectorAll("button[data-map-filter]").forEach(item => {
+          item.classList.toggle("active", item === button);
+        });
+        renderMapLayers();
+        updateSearchResults(document.getElementById("locationSearch").value || "");
+      });
+    });
+  }
+
   // Map-data loading:
   // we prefer structured /map-data for zone-aware rendering; runtime-status remains as fallback.
   async function loadMapData() {
     try {
       const response = await fetch(`${API_BASE}/map-data`);
       const data = await response.json();
+      const events = data.events || data.signals || [];
       mapData = {
         zones: data.zones || [],
-        signals: data.signals || [],
+        events,
+        signals: events,
         source_layers: data.source_layers || {}
       };
       latestRiskMap = Object.fromEntries(mapData.zones.map(zone => [zone.name, zone.risk_score]));
@@ -1060,6 +1176,7 @@
   }
 
   initMap();
+  initMapFilters();
   setInterval(loadRuntimeStatus, 12000);
   setInterval(loadSourceHealth, 12000);
   setInterval(loadHistory, 12000);

@@ -127,7 +127,7 @@ MAP_ZONES = {
 SOURCE_LAYER_FLAGS = {
     "police_uk": True,
     "open_meteo": True,
-    "street_manager": False,
+    "street_manager": True,
 }
 
 
@@ -873,13 +873,111 @@ def map_trend(score):
     return "stable"
 
 
+def parse_event_metadata(metadata_raw):
+    if not metadata_raw:
+        return {}
+    try:
+        metadata = json.loads(metadata_raw)
+    except (TypeError, json.JSONDecodeError):
+        return {}
+    return metadata if isinstance(metadata, dict) else {}
+
+
+def coerce_float(value):
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def metadata_coordinates(metadata):
+    coordinates = metadata.get("coordinates") if isinstance(metadata, dict) else None
+    if isinstance(coordinates, dict):
+        lat = coerce_float(first_present(coordinates.get("latitude"), coordinates.get("lat"), coordinates.get("y")))
+        lng = coerce_float(first_present(coordinates.get("longitude"), coordinates.get("lng"), coordinates.get("lon"), coordinates.get("x")))
+        if lat is not None and lng is not None:
+            return lat, lng
+
+    lat = coerce_float(first_present(metadata.get("latitude"), metadata.get("lat")))
+    lng = coerce_float(first_present(metadata.get("longitude"), metadata.get("lng"), metadata.get("lon")))
+    if lat is not None and lng is not None:
+        return lat, lng
+
+    return None
+
+
+def event_coordinate_confidence(source, metadata):
+    confidence = str(metadata.get("coordinate_confidence") or "").lower()
+    if confidence in {"exact", "approximate", "zone_fallback"}:
+        return confidence
+
+    # Police.uk public crime coordinates are deliberately approximate.
+    if source == "Police.uk":
+        return "approximate"
+
+    return "exact"
+
+
+def map_event_coordinates(source, zone, metadata):
+    coords = metadata_coordinates(metadata)
+    if coords:
+        lat, lng = coords
+        confidence = event_coordinate_confidence(source, metadata)
+        return lat, lng, confidence
+
+    return zone["lat"], zone["lng"], "zone_fallback"
+
+
+def map_event_severity(signal_type, source, metadata):
+    text = " ".join(str(value).lower() for value in [
+        signal_type,
+        source,
+        metadata.get("traffic_management_type"),
+        metadata.get("works_category"),
+        metadata.get("activity_type"),
+    ] if value)
+
+    if any(term in text for term in ["closure", "emergency", "urgent", "major"]):
+        return "high"
+    if any(term in text for term in ["temporary lights", "multi-way", "diversion", "permit", "infrastructure"]):
+        return "medium"
+    return "low"
+
+
+def map_event_title(signal_type, source, metadata, text):
+    if source == "Street Manager":
+        topic = str(metadata.get("topic") or "").lower()
+        if topic == "permit":
+            return "Street works permit"
+        if topic == "activity":
+            return "Street works activity"
+        if topic == "section-58":
+            return "Section 58 notice"
+        return "Street works"
+
+    if source == "Police.uk":
+        return "Incident signal"
+
+    return str(signal_type or "Civic signal").replace("_", " ").title()
+
+
+def map_event_reference(metadata):
+    return first_present(
+        metadata.get("reference"),
+        metadata.get("permit_reference"),
+        metadata.get("works_reference"),
+        metadata.get("activity_reference"),
+        metadata.get("street_manager_id"),
+    )
+
+
 @app.get("/")
 def home():
     return {
         "message": "Town Warden backend is running",
         "status": "live",
         "mode": "real-data-only civic intelligence system",
-        "sources": ["Police.uk", "Open-Meteo", "Street Manager pending"],
+        "sources": ["Police.uk", "Open-Meteo", "Street Manager"],
         **runtime_status(),
     }
 
@@ -916,30 +1014,16 @@ def get_map_data():
     zone_source_counts = {zone["name"]: {} for zone in MAP_ZONES.values()}
     recent_zone_signals = {zone["name"]: 0 for zone in MAP_ZONES.values()}
 
-    signals = []
+    events = []
     now = datetime.now()
 
     for idx, row in enumerate(rows):
         signal_id, signal_type, source, location, text, timestamp, metadata_raw = row
-        try:
-            metadata = json.loads(metadata_raw) if metadata_raw else {}
-        except json.JSONDecodeError:
-            metadata = {}
+        metadata = parse_event_metadata(metadata_raw)
 
         zone = infer_zone_from_location(location)
         zone_name = zone["name"]
-        coordinates = metadata.get("coordinates") if isinstance(metadata, dict) else None
-        lat = zone["lat"]
-        lng = zone["lng"]
-        approximate = True
-
-        if isinstance(coordinates, dict):
-            try:
-                lat = float(coordinates.get("latitude"))
-                lng = float(coordinates.get("longitude"))
-                approximate = False
-            except (TypeError, ValueError):
-                pass
+        lat, lng, coordinate_confidence = map_event_coordinates(source, zone, metadata)
 
         zone_signal_counts[zone_name] += 1
         zone_source_counts[zone_name][source] = zone_source_counts[zone_name].get(source, 0) + 1
@@ -952,19 +1036,33 @@ def get_map_data():
         if event_time and now - event_time <= timedelta(hours=24):
             recent_zone_signals[zone_name] += 1
 
-        signals.append({
+        severity = map_event_severity(signal_type, source, metadata)
+        title = map_event_title(signal_type, source, metadata, text)
+        reference = map_event_reference(metadata)
+        is_approximate = coordinate_confidence != "exact"
+        confidence_note = {
+            "exact": "Coordinates came from the source payload.",
+            "approximate": "Coordinates are approximate because the source only publishes approximate positions.",
+            "zone_fallback": "Coordinates use the mapped Blackpool zone centre because the source did not include coordinates.",
+        }.get(coordinate_confidence, "Coordinate confidence is unknown.")
+
+        events.append({
             "id": signal_id or f"signal:{idx}",
             "type": signal_type or "signal",
             "source": source or "Unknown",
-            "zone": zone_name,
-            "title": f"{signal_type or 'Signal'} in {zone_name}",
+            "title": title,
             "description": text or "No additional source-limited detail.",
+            "text": text or "No additional source-limited detail.",
+            "location": location or zone_name,
+            "zone": zone_name,
             "lat": lat,
             "lng": lng,
             "timestamp": timestamp,
-            "severity": "info",
-            "is_approximate": approximate,
-            "approximate_note": "Coordinates are currently approximate and represent zone centres.",
+            "severity": severity,
+            "coordinate_confidence": coordinate_confidence,
+            "is_approximate": is_approximate,
+            "approximate_note": confidence_note if is_approximate else "",
+            "reference": reference,
             "metadata": metadata,
         })
 
@@ -997,8 +1095,17 @@ def get_map_data():
     return {
         "generated_at": datetime.now().isoformat(),
         "zones": zones,
-        "signals": signals,
+        "events": events,
+        "signals": events,
         "source_layers": SOURCE_LAYER_FLAGS,
+        "map_diagnostics": {
+            "total_mapped_events": len(events),
+            "exact_coordinate_events": len([event for event in events if event.get("coordinate_confidence") == "exact"]),
+            "approximate_coordinate_events": len([event for event in events if event.get("coordinate_confidence") == "approximate"]),
+            "zone_fallback_events": len([event for event in events if event.get("coordinate_confidence") == "zone_fallback"]),
+            "unmapped_events": 0,
+            "latest_mapped_street_manager_event": next((event for event in events if event.get("source") == "Street Manager"), None),
+        },
     }
 
 

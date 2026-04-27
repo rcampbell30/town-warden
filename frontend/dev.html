@@ -131,6 +131,12 @@
     </div>
 
     <div class="card">
+      <h2>Map Intelligence</h2>
+      <button onclick="loadMapDiagnostics()">Refresh Map Diagnostics</button>
+      <div id="mapDiagnostics" class="meta">Waiting for map intelligence diagnostics.</div>
+    </div>
+
+    <div class="card">
       <h2>History Intelligence</h2>
       <div class="controls-row">
         <button onclick="loadHistory()">Refresh History</button>
@@ -197,6 +203,7 @@
   let latestSourceHealth = {};
   let latestAnalytics = {};
   let latestHistory = [];
+  let latestMapData = { events: [], signals: [], map_diagnostics: {} };
   let commsPaused = false;
 
   function updateHeroStatus(connected) {
@@ -220,6 +227,48 @@
 
   function latestStreetMetadata(event) {
     return event?.metadata || {};
+  }
+
+  function mapEvents() {
+    return latestMapData.events || latestMapData.signals || [];
+  }
+
+  function mapReference(event) {
+    const metadata = event?.metadata || {};
+    return event?.reference || metadata.reference || metadata.permit_reference || metadata.works_reference || metadata.activity_reference || metadata.street_manager_id || "n/a";
+  }
+
+  function renderMapDiagnostics() {
+    const diagnostics = latestMapData.map_diagnostics || {};
+    const events = mapEvents();
+    const exact = diagnostics.exact_coordinate_events ?? events.filter(event => event.coordinate_confidence === "exact").length;
+    const approximate = diagnostics.approximate_coordinate_events ?? events.filter(event => event.coordinate_confidence === "approximate").length;
+    const fallback = diagnostics.zone_fallback_events ?? events.filter(event => event.coordinate_confidence === "zone_fallback" || event.is_approximate).length;
+    const latestStreet = diagnostics.latest_mapped_street_manager_event || events.find(event => event.source === "Street Manager");
+    const coordinateMode = exact > 0 ? "real coordinates present" : fallback > 0 ? "zone fallback only" : "no mapped events yet";
+
+    document.getElementById("mapDiagnostics").innerHTML = `
+      <div class="metric-grid">
+        <div class="metric"><span>Total mapped</span><strong>${diagnostics.total_mapped_events ?? events.length}</strong></div>
+        <div class="metric"><span>Exact</span><strong>${exact}</strong></div>
+        <div class="metric"><span>Approx / fallback</span><strong>${Number(approximate || 0) + Number(fallback || 0)}</strong></div>
+        <div class="metric"><span>Unmapped</span><strong>${diagnostics.unmapped_events ?? 0}</strong></div>
+      </div>
+      <div class="list-item">
+        <strong>Coordinate mode</strong>
+        <div class="meta">${coordinateMode}</div>
+        <div class="meta">approximate coordinate events: ${approximate}</div>
+        <div class="meta">zone fallback events: ${fallback}</div>
+      </div>
+      <div class="list-item">
+        <strong>Latest mapped Street Manager event</strong>
+        <div class="meta">text: ${latestStreet?.description || latestStreet?.text || "n/a"}</div>
+        <div class="meta">topic: ${latestStreet?.metadata?.topic || "n/a"}</div>
+        <div class="meta">location: ${latestStreet?.location || latestStreet?.zone || "n/a"}</div>
+        <div class="meta">reference: ${mapReference(latestStreet)}</div>
+        <div class="meta">coordinate confidence: ${latestStreet?.coordinate_confidence || "n/a"}</div>
+      </div>
+    `;
   }
 
   function renderStreetManagerIngestion() {
@@ -371,6 +420,17 @@
     }
   }
 
+  async function loadMapDiagnostics() {
+    try {
+      const response = await fetch(`${API_BASE}/map-data`);
+      if (!response.ok) throw new Error("map data unavailable");
+      latestMapData = await response.json();
+      renderMapDiagnostics();
+    } catch {
+      document.getElementById("mapDiagnostics").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
+    }
+  }
+
   async function loadHistory() {
     try {
       const typeFilter = document.getElementById("typeFilter").value;
@@ -400,6 +460,7 @@
     loadSourceHealth();
     loadAnalytics();
     loadHistory();
+    loadMapDiagnostics();
   }
 
   async function devAction(path, confirmFirst = false) {
@@ -455,6 +516,7 @@
       renderAgentComms((data.agent_log || []).slice(-50));
       renderDevSourceHealth({ sources: data.source_health || data.sources || {} });
       renderStreetManagerIngestion();
+      renderMapDiagnostics();
     };
   }
 
@@ -465,11 +527,13 @@
   setInterval(loadSourceHealth, 12000);
   setInterval(loadHistory, 12000);
   setInterval(loadAnalytics, 18000);
+  setInterval(loadMapDiagnostics, 18000);
   setInterval(loadInsights, 20000);
 
   loadSourceHealth();
   loadHistory();
   loadAnalytics();
+  loadMapDiagnostics();
   loadInsights();
   connectWebSocket();
   </script>
