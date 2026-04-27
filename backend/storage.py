@@ -1,10 +1,11 @@
 """SQLite persistence for Town Warden."""
 
 import json
+import os
 import sqlite3
 from datetime import datetime
 
-DB_NAME = "town_warden.db"
+DB_NAME = os.getenv("TOWN_WARDEN_DB", "town_warden.db")
 
 
 def connect():

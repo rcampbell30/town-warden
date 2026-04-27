@@ -1,0 +1,98 @@
+import copy
+import os
+import sys
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+
+
+BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(BACKEND_ROOT))
+
+IMPORT_DB = BACKEND_ROOT / ".test-runtime" / "import_test.db"
+IMPORT_DB.parent.mkdir(exist_ok=True)
+os.environ.setdefault("TOWN_WARDEN_DB", str(IMPORT_DB))
+
+import main  # noqa: E402
+import storage  # noqa: E402
+
+
+BASE_SOURCE_HEALTH = copy.deepcopy(main.source_health)
+
+
+@pytest.fixture
+def app_state(tmp_path, monkeypatch):
+    test_db = tmp_path / "town_warden_test.db"
+    monkeypatch.setattr(storage, "DB_NAME", str(test_db))
+
+    main.setup_database()
+    main.clear_database()
+
+    main.history.clear()
+    main.risk_map.clear()
+    main.real_event_queue.clear()
+    main.agent_log.clear()
+    main.insights.clear()
+    main.duplicate_count = 0
+    main.last_source_fetch_time = None
+    main.source_health.clear()
+    main.source_health.update(copy.deepcopy(BASE_SOURCE_HEALTH))
+
+    yield
+
+    main.clear_database()
+
+
+@pytest.fixture
+def client(app_state):
+    return TestClient(main.app)
+
+
+@pytest.fixture
+def permit_payload():
+    return {
+        "permitReferenceNumber": "BC001-PM-000123",
+        "worksReference": "BC001-WR-000123",
+        "streetName": "Promenade",
+        "locationDescription": "Near North Pier",
+        "town": "Blackpool",
+        "activityType": "resurfacing works",
+        "worksCategory": "major",
+        "trafficManagementType": "lane closure",
+        "startDate": "2026-04-27",
+        "endDate": "2026-04-29",
+        "responsibleOrganisation": "Example Utilities",
+        "highwayAuthority": "Blackpool Council",
+        "coordinates": {
+            "latitude": 53.8191,
+            "longitude": -3.0552,
+        },
+    }
+
+
+@pytest.fixture
+def activity_payload():
+    return {
+        "activityReference": "ACT-998877",
+        "streetName": "Talbot Road",
+        "locationDescription": "Outside the station",
+        "activityType": "excavation",
+        "trafficManagementType": "temporary lights",
+        "startDate": "2026-05-01",
+        "endDate": "2026-05-02",
+        "responsibleOrganisation": "Example Contractor",
+    }
+
+
+@pytest.fixture
+def section58_payload():
+    return {
+        "notificationId": "S58-445566",
+        "streetName": "Lytham Road",
+        "locationDescription": "South Shore corridor",
+        "notificationType": "section 58 restriction",
+        "startDate": "2026-06-01",
+        "highwayAuthorityName": "Blackpool Council",
+    }
