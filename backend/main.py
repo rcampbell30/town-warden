@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+import urllib.request
 from datetime import datetime, timedelta
 
 from fastapi import Depends, FastAPI, WebSocket, Request, HTTPException
@@ -322,6 +323,59 @@ def queue_webhook_event(event):
         )
 
     return saved
+
+
+async def handle_street_manager_webhook(kind, request):
+    raw_body = await request.body()
+    raw_text = raw_body.decode("utf-8", errors="replace")
+
+    print(f"Street Manager raw webhook body [{kind}]: {raw_text}", flush=True)
+
+    try:
+        payload = json.loads(raw_body)
+    except json.JSONDecodeError as exc:
+        message = f"Invalid Street Manager webhook JSON for {kind}: {exc}"
+        print(message, flush=True)
+        log_agent("Street Manager Connector", message, "danger")
+        raise HTTPException(status_code=400, detail="Invalid JSON payload.")
+
+    if payload.get("Type") == "SubscriptionConfirmation":
+        subscribe_url = payload.get("SubscribeURL")
+        topic = payload.get("TopicArn") or kind
+
+        if not isinstance(subscribe_url, str) or not subscribe_url.startswith("https://sns."):
+            message = f"Rejected invalid SNS SubscribeURL for {kind}: {subscribe_url}"
+            print(message, flush=True)
+            log_agent("Street Manager Connector", message, "danger")
+            raise HTTPException(status_code=400, detail="Invalid SNS SubscribeURL.")
+
+        try:
+            with urllib.request.urlopen(subscribe_url, timeout=10) as response:
+                response.read()
+        except Exception as exc:
+            message = f"Failed to confirm SNS subscription for {kind}: {exc}"
+            print(message, flush=True)
+            log_agent("Street Manager Connector", message, "danger")
+            raise HTTPException(status_code=502, detail="SNS subscription confirmation failed.")
+
+        message = f"SNS subscription confirmed for Street Manager {kind}: {topic}"
+        print(message, flush=True)
+        log_agent("Street Manager Connector", message, "success")
+
+        return {
+            "status": "subscription_confirmed",
+            "topic": topic,
+        }
+
+    event = normalise_street_manager_payload(kind, payload)
+    saved = queue_webhook_event(event)
+
+    return {
+        "status": "received",
+        "kind": kind,
+        "saved": saved,
+        "source_event_id": event["source_event_id"],
+    }
 
 
 def fetch_real_events():
@@ -838,44 +892,17 @@ def get_analytics():
 
 @app.post("/webhooks/street-manager/permits")
 async def street_manager_permits(request: Request):
-    payload = await request.json()
-    event = normalise_street_manager_payload("permit", payload)
-    saved = queue_webhook_event(event)
-
-    return {
-        "status": "received",
-        "kind": "permit",
-        "saved": saved,
-        "source_event_id": event["source_event_id"],
-    }
+    return await handle_street_manager_webhook("permit", request)
 
 
 @app.post("/webhooks/street-manager/activities")
 async def street_manager_activities(request: Request):
-    payload = await request.json()
-    event = normalise_street_manager_payload("activity", payload)
-    saved = queue_webhook_event(event)
-
-    return {
-        "status": "received",
-        "kind": "activity",
-        "saved": saved,
-        "source_event_id": event["source_event_id"],
-    }
+    return await handle_street_manager_webhook("activity", request)
 
 
 @app.post("/webhooks/street-manager/section-58")
 async def street_manager_section_58(request: Request):
-    payload = await request.json()
-    event = normalise_street_manager_payload("section-58", payload)
-    saved = queue_webhook_event(event)
-
-    return {
-        "status": "received",
-        "kind": "section-58",
-        "saved": saved,
-        "source_event_id": event["source_event_id"],
-    }
+    return await handle_street_manager_webhook("section-58", request)
 
 
 @app.post("/dev/force-refresh")
