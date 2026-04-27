@@ -244,6 +244,37 @@
       grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
     }
 
+    .source-grid,
+    .signals-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+
+    .source-card,
+    .signal-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--surface-soft);
+      padding: 12px;
+      min-height: 150px;
+    }
+
+    .source-card.connected {
+      border-color: color-mix(in srgb, var(--ok) 35%, var(--border));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 18%, transparent);
+    }
+
+    .metric-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      font-size: 0.9rem;
+      border-top: 1px solid var(--border);
+      padding-top: 7px;
+      margin-top: 7px;
+    }
+
     .insight-card {
       border: 1px solid var(--border);
       border-left: 6px solid #93c5fd;
@@ -310,6 +341,7 @@
         <h1>Town Warden</h1>
         <div class="subtitle">Public civic status dashboard for Blackpool</div>
         <div class="caption">For residents asking: Is everything OK? Where are risks now? What is changing?</div>
+        <div class="caption">Experimental civic intelligence prototype. Not official public authority advice. For emergencies, use official channels.</div>
       </div>
       <div class="header-actions">
         <button id="themeToggle" type="button" aria-label="Toggle dark mode">
@@ -335,7 +367,7 @@
         <div class="question-card">
           <strong>Is everything OK?</strong>
           <div class="answer" id="answerEverything">Checking latest status…</div>
-          <div class="meta">Connection: <span id="heroConnection">Connecting...</span> • Updated: <span id="heroUpdated">--</span></div>
+          <div class="meta">Connection: <span id="heroConnection">Connecting...</span> | Updated: <span id="heroUpdated">--</span></div>
         </div>
         <div class="question-card">
           <strong>Where are the risks right now?</strong>
@@ -349,9 +381,14 @@
         </div>
       </div>
       <div class="question-card">
-        <h2>Source Status</h2>
+        <h2>Live Sources</h2>
         <div id="publicSourceStatus"><div class="meta">Loading source status...</div></div>
       </div>
+    </section>
+
+    <section class="card" aria-label="Latest civic signals">
+      <h2>Latest Civic Signals</h2>
+      <div id="latestSignals" class="signals-grid"><div class="meta">Loading latest signals...</div></div>
     </section>
 
     <section class="card" aria-label="Blackpool risk map and context">
@@ -404,6 +441,7 @@
 
     <section class="card" aria-label="Agent insights">
       <h2>Agent Insights</h2>
+      <div class="caption">Insights are generated from available public data sources and may reflect current source coverage.</div>
       <div id="publicInsights" class="insights-grid"><div class="meta">No source-limited insights available yet.</div></div>
     </section>
   </div>
@@ -417,10 +455,28 @@
   const API_BASE = IS_LOCAL_FRONTEND ? "http://127.0.0.1:8000" : "https://town-warden.onrender.com";
   const WS_URL = IS_LOCAL_FRONTEND ? "ws://127.0.0.1:8000/ws" : "wss://town-warden.onrender.com/ws";
   const SOURCE_LABELS = ["Police.uk", "Open-Meteo", "Street Manager"];
+  const SOURCE_PUBLIC_COPY = {
+    "Police.uk": {
+      title: "Incidents",
+      source: "Police.uk",
+      description: "Public incident intelligence"
+    },
+    "Open-Meteo": {
+      title: "Weather",
+      source: "Open-Meteo",
+      description: "Weather context"
+    },
+    "Street Manager": {
+      title: "Street Works & Roadworks",
+      source: "Street Manager",
+      description: "Live street works / roadworks notifications"
+    }
+  };
 
   let ws = null;
   let latestInsights = [];
   let latestEvents = [];
+  let latestAnalytics = {};
   let latestRiskMap = {};
   let latestSourceHealth = {};
   let mapData = { zones: [], signals: [], source_layers: {} };
@@ -450,6 +506,60 @@
     return date.toLocaleString();
   }
 
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    }[char]));
+  }
+
+  function sourceIsActive(info) {
+    const status = String(info?.status || "").toLowerCase();
+    if (["connected", "healthy", "ok", "live", "enabled"].includes(status)) return true;
+    if (["pending", "disabled", "error", "failed", "offline", "unavailable"].includes(status)) return false;
+    return (Number(info?.records_returned || 0) + Number(info?.events_emitted || 0)) > 0;
+  }
+
+  function streetManagerIsLive(sourceHealth = latestSourceHealth) {
+    return sourceIsActive(sourceHealth?.["Street Manager"]);
+  }
+
+  function isStreetManagerEvent(event) {
+    return String(event?.source || "").toLowerCase() === "street manager";
+  }
+
+  function streetManagerKind(event) {
+    const text = `${event?.text || ""} ${event?.source_event_id || ""}`.toLowerCase();
+    if (text.includes("section-58") || text.includes("section 58")) return "Section 58";
+    if (text.includes("activity")) return "Activity";
+    if (text.includes("permit")) return "Permit";
+    return "Street works";
+  }
+
+  function signalLabel(event) {
+    if (isStreetManagerEvent(event)) return streetManagerKind(event);
+    const type = String(event?.type || "signal").toLowerCase();
+    if (type === "incident") return "Incidents";
+    if (type === "weather") return "Weather";
+    if (type === "infrastructure") return "Street works";
+    return type.charAt(0).toUpperCase() + type.slice(1);
+  }
+
+  function signalDescription(event) {
+    if (!event) return "No signal detail available.";
+    if (isStreetManagerEvent(event)) {
+      const kind = streetManagerKind(event).toLowerCase();
+      const base = `Street Manager ${kind === "street works" ? "street works" : kind.toLowerCase()} notification received`;
+      const text = String(event.text || "");
+      if (!text || text.toLowerCase().includes("unknown reference")) return `${base}.`;
+      return text.replace(/\s*\(unknown reference\)\s*/i, "").trim();
+    }
+    return event.text || event.description || "No signal detail available.";
+  }
+
   function updateHeroStatus(connected) {
     document.getElementById("heroConnection").innerText = connected ? "Connected" : "Disconnected";
     document.getElementById("statusPill").innerText = connected ? "Backend connected" : "Backend disconnected";
@@ -460,14 +570,11 @@
     const sources = sourceHealth || data.source_health || data.sources || {};
     latestSourceHealth = sources;
     const publicSources = SOURCE_LABELS;
-    const connected = publicSources.filter(name => {
-      const status = String(sources[name]?.status || "").toLowerCase();
-      return ["connected", "checking", "enabled", "pending"].includes(status);
-    }).length;
+    const connected = publicSources.filter(name => sourceIsActive(sources[name])).length;
 
     document.getElementById("sumHealth").innerText = data.health !== undefined ? `${data.health}/100` : "--";
     document.getElementById("sumSources").innerText = `${connected}/3`;
-    document.getElementById("sumEvents").innerText = data.live_history_count ?? data.history_count ?? latestEvents.length ?? "--";
+    document.getElementById("sumEvents").innerText = latestAnalytics.total_events ?? data.live_history_count ?? data.history_count ?? latestEvents.length ?? "--";
     document.getElementById("sumRiskZones").innerText = Object.keys(data.risk_map || latestRiskMap || {}).length;
     document.getElementById("sumInsights").innerText = data.insight_count ?? data.count ?? latestInsights.length;
 
@@ -490,20 +597,57 @@
     }
 
     const latest = latestEvents[0];
-    document.getElementById("answerChanging").innerText = latest
-      ? `${String(latest.type || "signal")} update in ${latest.location || "Blackpool"} (${latest.source || "Unknown source"}).`
-      : "No fresh unseen events. Watching source refresh cycles.";
+    const streetManagerQueued = Number(sources["Street Manager"]?.new_events_queued || 0);
+    const hasRecentStreetManager = latestEvents.some(isStreetManagerEvent);
+    if (hasRecentStreetManager || streetManagerQueued > 0) {
+      document.getElementById("answerChanging").innerText = "Street works notifications are now flowing into Town Warden.";
+    } else {
+      document.getElementById("answerChanging").innerText = latest
+        ? `${signalLabel(latest)} update in ${latest.location || "Blackpool"} (${latest.source || "Unknown source"}).`
+        : "No new public civic signals in the latest checks. Watching source refresh cycles.";
+    }
   }
 
   function renderPublicSourceStatus(sourceHealth) {
     const sources = sourceHealth || latestSourceHealth || {};
+    document.getElementById("publicSourceStatus").className = "source-grid";
     document.getElementById("publicSourceStatus").innerHTML = SOURCE_LABELS.map(name => {
       const info = sources[name] || {};
-      const note = name === "Street Manager"
-        ? "Webhook endpoints ready. Awaiting external approval/notifications."
-        : (info.message || "No update yet.");
-      return `<div class="list-item"><strong>${name}</strong><div class="meta">${note}</div></div>`;
+      const copy = SOURCE_PUBLIC_COPY[name];
+      const active = sourceIsActive(info);
+      const connectedStreetManager = name === "Street Manager" && active;
+      const statusText = connectedStreetManager
+        ? "Live street works notifications are being received."
+        : (info.message || (active ? "Live source is available." : "Waiting for source updates."));
+      return `
+        <article class="source-card ${active ? "connected" : ""}">
+          <h3>${copy.title}</h3>
+          <div class="caption">Source: ${copy.source}</div>
+          <p>${copy.description}</p>
+          <div class="meta">${statusText}</div>
+          <div class="metric-row"><span>Records returned</span><strong>${info.records_returned ?? 0}</strong></div>
+          <div class="metric-row"><span>New queued</span><strong>${info.new_events_queued ?? 0}</strong></div>
+          <div class="metric-row"><span>Duplicates skipped</span><strong>${info.duplicates_skipped ?? 0}</strong></div>
+          <div class="caption">Last checked: ${formatTime(info.last_checked)}</div>
+        </article>
+      `;
     }).join("");
+  }
+
+  function renderLatestSignals() {
+    const container = document.getElementById("latestSignals");
+    if (!latestEvents.length) {
+      container.innerHTML = `<div class="meta">No recent public signals available yet.</div>`;
+      return;
+    }
+
+    container.innerHTML = latestEvents.slice(0, 6).map(event => `
+      <article class="signal-card">
+        <h3>${escapeHtml(signalLabel(event))}</h3>
+        <div>${escapeHtml(signalDescription(event))}</div>
+        <div class="caption">${escapeHtml(event.source || "Unknown source")} | ${escapeHtml(event.location || "Blackpool")} | ${escapeHtml(formatTime(event.timestamp))}</div>
+      </article>
+    `).join("");
   }
 
   function severityIcon(severity) {
@@ -600,9 +744,9 @@
 
     container.innerHTML = zoneSignals.map(item => `
       <div class="list-item">
-        <strong>${String(item.title || item.type || "signal")}</strong>
-        <div>${item.description || "No signal summary."}</div>
-        <div class="caption">${item.source || "Unknown"} • ${formatTime(item.timestamp)} • ${item.is_approximate ? "Approximate" : "Precise"}</div>
+        <strong>${escapeHtml(signalLabel(item))}</strong>
+        <div>${escapeHtml(signalDescription(item))}</div>
+        <div class="caption">${escapeHtml(item.source || "Unknown")} | ${escapeHtml(formatTime(item.timestamp))} | ${item.is_approximate ? "Approximate" : "Precise"}</div>
       </div>
     `).join("");
   }
@@ -650,7 +794,7 @@
   }
 
   // Source layer toggles:
-  // Street Manager remains visible in UI but muted when source-limited/pending.
+  // Street Manager is visible as a live source when source-health reports connected payloads.
   function annotateLayerControls() {
     const overlays = document.querySelector(".leaflet-control-layers-overlays");
     if (!overlays) return;
@@ -658,12 +802,18 @@
     labels.forEach(label => {
       const text = label.innerText;
       if (text.includes("Street Manager")) {
-        label.classList.add("muted-toggle");
+        label.classList.toggle("muted-toggle", !streetManagerIsLive());
         if (!label.querySelector(".layer-note")) {
           const note = document.createElement("div");
           note.className = "layer-note";
-          note.innerText = "Pending approval. No live roadworks payloads yet.";
+          note.innerText = streetManagerIsLive()
+            ? "Live street works notifications are being received."
+            : "Waiting for Street Manager source health.";
           label.appendChild(note);
+        } else {
+          label.querySelector(".layer-note").innerText = streetManagerIsLive()
+            ? "Live street works notifications are being received."
+            : "Waiting for Street Manager source health.";
         }
       }
     });
@@ -695,11 +845,11 @@
       const emoji = sourceName === "Open-Meteo" ? "🟩" : sourceName === "Street Manager" ? "⬜" : "🟦";
       const marker = L.marker(coords, { title: `${sourceName}: ${signal.zone || "Blackpool"}` });
       marker.bindPopup(`
-        <strong>${emoji} ${signal.title || "Signal"}</strong><br>
+        <strong>${emoji} ${escapeHtml(signalLabel(signal))}</strong><br>
         Source: ${sourceName}<br>
         Zone: ${signal.zone || "Unknown"}<br>
         Time: ${formatTime(signal.timestamp)}<br>
-        ${signal.description || "No detail."}<br>
+        ${escapeHtml(signalDescription(signal))}<br>
         <em>${signal.is_approximate ? "Location approximate." : ""}</em>
       `);
       marker.on("click", () => {
@@ -804,28 +954,59 @@
   async function loadSourceHealth() {
     try {
       const response = await fetch(`${API_BASE}/source-health`);
+      if (!response.ok) throw new Error("source health unavailable");
       const data = await response.json();
-      renderPublicSourceStatus(data.sources || data.source_health || {});
+      const sources = data.sources || data.source_health || {};
+      renderPublicSourceStatus(sources);
+      updateSummary(data, sources);
+      annotateLayerControls();
     } catch {
-      document.getElementById("publicSourceStatus").innerHTML = `<div class="meta">Source status unavailable.</div>`;
+      document.getElementById("publicSourceStatus").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
+      document.getElementById("statusPill").innerText = "Backend waking or temporarily unavailable";
+    }
+  }
+
+  async function loadHistory() {
+    try {
+      const response = await fetch(`${API_BASE}/history`);
+      if (!response.ok) throw new Error("history unavailable");
+      const rows = await response.json();
+      latestEvents = Array.isArray(rows) ? rows : [];
+      renderLatestSignals();
+      updateSummary({}, latestSourceHealth);
+    } catch {
+      document.getElementById("latestSignals").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
+    }
+  }
+
+  async function loadAnalytics() {
+    try {
+      const response = await fetch(`${API_BASE}/analytics`);
+      if (!response.ok) throw new Error("analytics unavailable");
+      latestAnalytics = await response.json();
+      updateSummary({}, latestSourceHealth);
+    } catch {
+      latestAnalytics = {};
     }
   }
 
   async function loadInsights() {
     try {
       const response = await fetch(`${API_BASE}/insights`);
+      if (!response.ok) throw new Error("insights unavailable");
       const data = await response.json();
       latestInsights = data.insights || [];
       renderPublicInsights();
       document.getElementById("sumInsights").innerText = data.count ?? latestInsights.length;
     } catch {
-      document.getElementById("publicInsights").innerHTML = `<div class="meta">Insights unavailable.</div>`;
+      document.getElementById("publicInsights").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
     }
   }
 
   async function loadRuntimeStatus() {
     try {
       const response = await fetch(`${API_BASE}/runtime-status`);
+      if (!response.ok) throw new Error("runtime unavailable");
       const data = await response.json();
       latestRiskMap = data.risk_map || latestRiskMap || {};
       updateSummary(data, data.source_health || data.sources || {});
@@ -833,6 +1014,7 @@
       updateSearchResults(document.getElementById("locationSearch").value || "");
     } catch {
       updateSummary({}, {});
+      document.getElementById("statusPill").innerText = "Backend waking or temporarily unavailable";
     }
   }
 
@@ -853,11 +1035,13 @@
       if (data.event && data.event.type !== "waiting") {
         latestEvents.unshift(data.event);
         latestEvents = latestEvents.slice(0, 60);
+        renderLatestSignals();
       }
 
       latestInsights = data.insights || latestInsights;
       renderPublicInsights();
       renderPublicSourceStatus(data.source_health || data.sources || {});
+      annotateLayerControls();
       loadMapData();
     };
   }
@@ -878,11 +1062,15 @@
   initMap();
   setInterval(loadRuntimeStatus, 12000);
   setInterval(loadSourceHealth, 12000);
+  setInterval(loadHistory, 12000);
+  setInterval(loadAnalytics, 18000);
   setInterval(loadInsights, 20000);
 
   loadRuntimeStatus();
   loadMapData();
   loadSourceHealth();
+  loadHistory();
+  loadAnalytics();
   loadInsights();
   connectWebSocket();
   </script>
