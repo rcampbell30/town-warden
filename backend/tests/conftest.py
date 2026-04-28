@@ -78,11 +78,13 @@ def activity_payload():
         "activityReference": "ACT-998877",
         "streetName": "Talbot Road",
         "locationDescription": "Outside the station",
+        "town": "Blackpool",
         "activityType": "excavation",
         "trafficManagementType": "temporary lights",
         "startDate": "2026-05-01",
         "endDate": "2026-05-02",
         "responsibleOrganisation": "Example Contractor",
+        "highwayAuthorityName": "Blackpool Council",
     }
 
 
@@ -95,4 +97,57 @@ def section58_payload():
         "notificationType": "section 58 restriction",
         "startDate": "2026-06-01",
         "highwayAuthorityName": "Blackpool Council",
+    }
+
+
+@pytest.fixture
+def london_payload():
+    return {
+        "permitReferenceNumber": "LDN-0001",
+        "streetName": "Oxford Street",
+        "town": "London",
+        "highwayAuthorityName": "Westminster City Council",
+        "postcode": "W1D 1BS",
+        "activityType": "utility works",
+        "coordinates": {
+            "latitude": 51.5154,
+            "longitude": -0.1418,
+        },
+    }
+
+
+@pytest.fixture
+def shropshire_payload():
+    return {
+        "permitReferenceNumber": "SHR-0001",
+        "streetName": "High Street",
+        "town": "Shrewsbury",
+        "county": "Shropshire",
+        "highwayAuthorityName": "Shropshire Council",
+        "activityType": "carriageway repair",
+        "coordinates": {
+            "latitude": 52.7073,
+            "longitude": -2.7553,
+        },
+    }
+
+
+@pytest.fixture
+def blackpool_coordinate_payload():
+    return {
+        "permitReferenceNumber": "COORD-0001",
+        "streetName": "Unnamed works site",
+        "activityType": "inspection",
+        "coordinates": {
+            "latitude": 53.8178,
+            "longitude": -3.0509,
+        },
+    }
+
+
+@pytest.fixture
+def no_location_payload():
+    return {
+        "permitReferenceNumber": "NOLOC-0001",
+        "activityType": "works notification",
     }

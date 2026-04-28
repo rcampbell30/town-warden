@@ -18,6 +18,11 @@ from config import (
     ENVIRONMENT,
     MAX_NEW_EVENTS_PER_FETCH,
     SOURCE_REFRESH_SECONDS,
+    TOWN_WARDEN_AREA_NAME,
+    TOWN_WARDEN_MAX_LAT,
+    TOWN_WARDEN_MAX_LNG,
+    TOWN_WARDEN_MIN_LAT,
+    TOWN_WARDEN_MIN_LNG,
     WEBSOCKET_TICK_SECONDS,
 )
 from connectors import open_meteo, police_uk, simulation, street_manager
@@ -69,6 +74,7 @@ source_health = {
         "events_emitted": 0,
         "new_events_queued": 0,
         "duplicates_skipped": 0,
+        "filtered_out_of_area": 0,
         "last_checked": None,
     },
     "Open-Meteo": {
@@ -78,6 +84,7 @@ source_health = {
         "events_emitted": 0,
         "new_events_queued": 0,
         "duplicates_skipped": 0,
+        "filtered_out_of_area": 0,
         "last_checked": None,
     },
     "Street Manager": {
@@ -87,6 +94,7 @@ source_health = {
         "events_emitted": 0,
         "new_events_queued": 0,
         "duplicates_skipped": 0,
+        "filtered_out_of_area": 0,
         "last_checked": None,
     },
     "Simulation": {
@@ -96,6 +104,7 @@ source_health = {
         "events_emitted": 0,
         "new_events_queued": 0,
         "duplicates_skipped": 0,
+        "filtered_out_of_area": 0,
         "last_checked": datetime.now().isoformat(),
     },
 }
@@ -191,6 +200,7 @@ def update_source_health(
     events_emitted=0,
     new_events_queued=None,
     duplicates_skipped=None,
+    filtered_out_of_area=None,
 ):
     current = source_health.get(source_name, {})
 
@@ -204,6 +214,11 @@ def update_source_health(
 
     if duplicates_skipped is not None:
         current["duplicates_skipped"] = duplicates_skipped
+
+    if filtered_out_of_area is not None:
+        current["filtered_out_of_area"] = filtered_out_of_area
+    else:
+        current.setdefault("filtered_out_of_area", 0)
 
     current["last_checked"] = datetime.now().isoformat()
     source_health[source_name] = current
@@ -469,6 +484,15 @@ def normalize_street_manager_payload(payload, topic):
         "start_date": start_date,
         "end_date": end_date,
         "coordinates": extract_coordinates(street_payload),
+        "postcode": as_text(get_nested_field(street_payload, [
+            "postcode", "postalCode", "post_code",
+        ])),
+        "district": as_text(get_nested_field(street_payload, [
+            "district", "borough", "administrativeArea", "administrative_area",
+        ])),
+        "county": as_text(get_nested_field(street_payload, [
+            "county", "region",
+        ])),
         "responsible_organisation": as_text(get_nested_field(street_payload, [
             "responsibleOrganisation", "responsible_organisation", "promoterOrganisation", "organisation",
         ])),
@@ -508,6 +532,120 @@ def normalize_street_manager_payload(payload, topic):
 
 def normalise_street_manager_payload(kind, payload):
     return normalize_street_manager_payload(payload, kind)
+
+
+def text_contains_area(value):
+    area = TOWN_WARDEN_AREA_NAME.lower()
+    return area in str(value or "").lower()
+
+
+def coordinates_in_town_warden_bounds(coordinates):
+    if not isinstance(coordinates, dict):
+        return False
+
+    lat = coerce_float(first_present(coordinates.get("latitude"), coordinates.get("lat"), coordinates.get("y")))
+    lng = coerce_float(first_present(coordinates.get("longitude"), coordinates.get("lng"), coordinates.get("lon"), coordinates.get("x")))
+
+    if lat is None or lng is None:
+        return False
+
+    return (
+        TOWN_WARDEN_MIN_LAT <= lat <= TOWN_WARDEN_MAX_LAT
+        and TOWN_WARDEN_MIN_LNG <= lng <= TOWN_WARDEN_MAX_LNG
+    )
+
+
+def postcode_indicates_project_area(value):
+    postcode = str(value or "").strip().upper().replace(" ", "")
+    if not postcode:
+        return False
+
+    # FY postcodes cover the Blackpool/Fylde/Wyre pilot geography. We still
+    # prefer stronger town/authority evidence when present, but this catches
+    # payloads that provide a postcode without a clean town field.
+    return postcode.startswith("FY")
+
+
+def street_manager_location_evidence(metadata):
+    return {
+        "town_area": metadata.get("town_area"),
+        "highway_authority": metadata.get("highway_authority"),
+        "street_name": metadata.get("street_name"),
+        "location_description": metadata.get("location_description"),
+        "district": metadata.get("district"),
+        "county": metadata.get("county"),
+        "postcode": metadata.get("postcode"),
+        "coordinates": metadata.get("coordinates"),
+    }
+
+
+def is_relevant_to_blackpool_street_manager(payload, normalized_event):
+    """
+    Decide whether a Street Manager payload belongs in the Blackpool pilot area.
+
+    The filter is intentionally conservative: without clear area, authority,
+    postcode, or coordinate evidence, the webhook is accepted by the endpoint
+    but not stored as a Town Warden civic event.
+    """
+
+    metadata = normalized_event.get("metadata") or {}
+    evidence = street_manager_location_evidence(metadata)
+    direct_text_values = [
+        evidence.get("town_area"),
+        evidence.get("highway_authority"),
+        evidence.get("street_name"),
+        evidence.get("location_description"),
+        evidence.get("district"),
+    ]
+
+    if any(text_contains_area(value) for value in direct_text_values):
+        return True, "area_text"
+
+    if coordinates_in_town_warden_bounds(evidence.get("coordinates")):
+        return True, "coordinate_bounds"
+
+    if postcode_indicates_project_area(evidence.get("postcode")):
+        return True, "postcode"
+
+    payload_area_fields = [
+        get_nested_field(payload, ["town", "area", "district", "borough", "highwayAuthority", "highwayAuthorityName"]),
+        get_nested_field(payload, ["postcode", "postalCode", "post_code"]),
+    ]
+
+    if any(text_contains_area(value) for value in payload_area_fields):
+        return True, "payload_area_text"
+
+    if any(postcode_indicates_project_area(value) for value in payload_area_fields):
+        return True, "payload_postcode"
+
+    return False, "out_of_area_or_missing_location"
+
+
+def record_street_manager_filtered_event(event, reason):
+    info = source_health["Street Manager"]
+    info["status"] = "connected"
+    info["message"] = (
+        f"Webhook received but filtered outside the {TOWN_WARDEN_AREA_NAME} pilot area."
+    )
+    info["records_returned"] += 1
+    info["filtered_out_of_area"] = info.get("filtered_out_of_area", 0) + 1
+    info["last_checked"] = datetime.now().isoformat()
+
+    filtered = info["filtered_out_of_area"]
+    if filtered == 1 or filtered % 25 == 0:
+        log_agent(
+            "Street Manager Geographic Filter",
+            f"Street Manager geographic filter discarded {filtered} out-of-area records.",
+            "warning",
+        )
+
+    return {
+        "status": "filtered_out",
+        "kind": event.get("metadata", {}).get("topic"),
+        "saved": False,
+        "reason": reason,
+        "source_event_id": event.get("source_event_id"),
+    }
 
 
 def queue_webhook_event(event):
@@ -598,6 +736,12 @@ async def handle_street_manager_webhook(kind, request):
         }
 
     event = normalise_street_manager_payload(kind, payload)
+    relevant, relevance_reason = is_relevant_to_blackpool_street_manager(payload, event)
+
+    if not relevant:
+        return record_street_manager_filtered_event(event, relevance_reason)
+
+    event["metadata"]["geographic_relevance"] = relevance_reason
     saved = queue_webhook_event(event)
 
     return {
@@ -1320,6 +1464,7 @@ def dev_reset_database(_: None = Depends(require_dev_access)):
     for source in source_health.values():
         source["new_events_queued"] = 0
         source["duplicates_skipped"] = 0
+        source["filtered_out_of_area"] = 0
 
     log_agent("Developer Controls", "Local database and runtime memory reset.", "danger")
 

@@ -285,6 +285,7 @@
         <div class="metric"><span>Status</span><strong>${status}</strong></div>
         <div class="metric"><span>Total SM events</span><strong>${totalStreetEvents}</strong></div>
         <div class="metric"><span>Duplicates</span><strong>${formatValue(info.duplicates_skipped)}</strong></div>
+        <div class="metric"><span>Filtered out-of-area</span><strong>${formatValue(info.filtered_out_of_area)}</strong></div>
       </div>
       <div class="list-item">
         <strong>Latest Street Manager message</strong>
@@ -293,7 +294,7 @@
         <div class="meta">latest topic: ${metadata.topic || "n/a"}</div>
         <div class="meta">latest mapped street/location: ${metadata.street_name || metadata.location_description || latestStreetEvent?.location || "n/a"}</div>
         <div class="meta">latest reference: ${metadata.reference || metadata.permit_reference || metadata.works_reference || metadata.activity_reference || "n/a"}</div>
-        <div class="meta">records returned: ${formatValue(info.records_returned)} | events emitted: ${formatValue(info.events_emitted)} | new queued: ${formatValue(info.new_events_queued)}</div>
+        <div class="meta">records returned: ${formatValue(info.records_returned)} | events emitted: ${formatValue(info.events_emitted)} | new queued: ${formatValue(info.new_events_queued)} | filtered out-of-area: ${formatValue(info.filtered_out_of_area)}</div>
         <div class="meta">latest message: ${info.message || "n/a"}</div>
       </div>
     `;
@@ -366,6 +367,7 @@
         <div class="meta">candidate events / events emitted: ${info.events_emitted ?? 0}</div>
         <div class="meta">new queued: ${info.new_events_queued ?? 0}</div>
         <div class="meta">duplicates skipped: ${info.duplicates_skipped ?? 0}</div>
+        <div class="meta">filtered out-of-area: ${info.filtered_out_of_area ?? 0}</div>
         <div class="meta">last checked: ${info.last_checked || "n/a"}</div>
         <div class="meta">message: ${info.message || ""}</div>
       </div>

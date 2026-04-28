@@ -24,10 +24,27 @@ def _env_int(name, default):
         return default
 
 
+def _env_float(name, default):
+    raw = os.getenv(name)
+
+    if raw is None:
+        return default
+
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
 ALLOW_SIMULATION = _env_bool("ALLOW_SIMULATION", False)
 
 BLACKPOOL_LAT = 53.8175
 BLACKPOOL_LNG = -3.0357
+TOWN_WARDEN_AREA_NAME = os.getenv("TOWN_WARDEN_AREA_NAME", "Blackpool").strip() or "Blackpool"
+TOWN_WARDEN_MIN_LAT = _env_float("TOWN_WARDEN_MIN_LAT", 53.73)
+TOWN_WARDEN_MAX_LAT = _env_float("TOWN_WARDEN_MAX_LAT", 53.90)
+TOWN_WARDEN_MIN_LNG = _env_float("TOWN_WARDEN_MIN_LNG", -3.10)
+TOWN_WARDEN_MAX_LNG = _env_float("TOWN_WARDEN_MAX_LNG", -2.95)
 
 POLICE_CANDIDATE_LIMIT = _env_int("POLICE_CANDIDATE_LIMIT", 80)
 MAX_NEW_EVENTS_PER_FETCH = _env_int("MAX_NEW_EVENTS_PER_FETCH", 8)

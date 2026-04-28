@@ -672,6 +672,7 @@
           <div class="metric-row"><span>Records returned</span><strong>${info.records_returned ?? 0}</strong></div>
           <div class="metric-row"><span>New queued</span><strong>${info.new_events_queued ?? 0}</strong></div>
           <div class="metric-row"><span>Duplicates skipped</span><strong>${info.duplicates_skipped ?? 0}</strong></div>
+          ${name === "Street Manager" ? `<div class="caption">Street works are filtered to the Blackpool pilot area where location data is available.</div>` : ""}
           <div class="caption">Last checked: ${formatTime(info.last_checked)}</div>
         </article>
       `;

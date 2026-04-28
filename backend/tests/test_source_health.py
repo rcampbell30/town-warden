@@ -4,6 +4,7 @@ def test_source_health_includes_expected_sources(client):
 
     assert {"Police.uk", "Open-Meteo", "Street Manager", "Simulation"}.issubset(sources)
     assert sources["Simulation"]["status"] == "disabled"
+    assert "filtered_out_of_area" in sources["Street Manager"]
 
 
 def test_street_manager_connected_after_webhook(client, permit_payload):
