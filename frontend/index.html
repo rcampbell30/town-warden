@@ -13,42 +13,57 @@
   >
   <style>
     :root {
-      --bg: #edf2f7;
+      --bg: #eef4f7;
       --surface: #ffffff;
-      --surface-soft: #f8fafc;
-      --text: #0f172a;
-      --muted: #475569;
-      --border: #d6e0eb;
-      --brand: #2563eb;
-      --ok: #166534;
-      --warn: #a16207;
-      --danger: #b91c1c;
+      --surface-soft: #f7fafc;
+      --surface-tint: #e8f1f4;
+      --text: #10202b;
+      --muted: #597080;
+      --border: #d4e1e7;
+      --brand: #0f5f73;
+      --brand-strong: #073f4d;
+      --accent: #bf7b30;
+      --ok: #14714f;
+      --warn: #a86815;
+      --danger: #b73535;
       --focus: #0ea5e9;
-      --shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      --shadow: 0 16px 40px rgba(16, 32, 43, 0.09);
+      --shadow-soft: 0 8px 24px rgba(16, 32, 43, 0.06);
+      --space-1: 6px;
+      --space-2: 10px;
+      --space-3: 14px;
+      --space-4: 18px;
+      --space-5: 24px;
     }
 
     body.dark {
       --bg: #0f172a;
       --surface: #111c2e;
       --surface-soft: #16243a;
+      --surface-tint: #1a2b43;
       --text: #e2e8f0;
       --muted: #a8b5c8;
       --border: #24364d;
       --brand: #60a5fa;
+      --brand-strong: #93c5fd;
+      --accent: #f59e0b;
       --ok: #4ade80;
       --warn: #fbbf24;
       --danger: #f87171;
       --focus: #38bdf8;
       --shadow: 0 12px 28px rgba(2, 6, 23, 0.35);
+      --shadow-soft: 0 10px 24px rgba(2, 6, 23, 0.25);
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      padding: 24px;
+      padding: 28px;
       font-family: Inter, "Segoe UI", Roboto, Arial, sans-serif;
-      background: var(--bg);
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--surface-tint) 70%, var(--bg)) 0, var(--bg) 360px),
+        var(--bg);
       color: var(--text);
       line-height: 1.5;
     }
@@ -57,27 +72,29 @@
       max-width: 1280px;
       margin: 0 auto;
       display: grid;
-      gap: 18px;
+      gap: var(--space-5);
     }
 
     .header,
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 16px;
+      border-radius: 18px;
       box-shadow: var(--shadow);
     }
 
     .header {
-      padding: 18px;
+      padding: 28px;
       display: flex;
       justify-content: space-between;
-      gap: 16px;
+      gap: var(--space-5);
       align-items: flex-start;
+      position: relative;
+      overflow: hidden;
     }
 
-    h1 { margin: 0; font-size: 2rem; }
-    h2 { margin: 0 0 10px; font-size: 1.2rem; }
+    h1 { margin: 0; font-size: clamp(2.1rem, 4vw, 3.3rem); line-height: 1; letter-spacing: 0; }
+    h2 { margin: 0 0 10px; font-size: 1.25rem; }
     h3 { margin: 0; font-size: 1rem; }
 
     .subtitle,
@@ -86,6 +103,14 @@
     .caption { color: var(--muted); }
 
     .caption { font-size: 0.9rem; }
+    .eyebrow {
+      color: var(--brand);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: var(--space-2);
+    }
 
     .header-actions {
       display: flex;
@@ -107,6 +132,20 @@
       align-items: center;
     }
 
+    .status-pill.connected,
+    .status-badge.connected {
+      color: var(--ok);
+      border-color: color-mix(in srgb, var(--ok) 45%, var(--border));
+      background: color-mix(in srgb, var(--ok) 12%, var(--surface));
+    }
+
+    .status-pill.unavailable,
+    .status-badge.error {
+      color: var(--danger);
+      border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+      background: color-mix(in srgb, var(--danger) 10%, var(--surface));
+    }
+
     button {
       border: 1px solid var(--border);
       border-radius: 10px;
@@ -122,19 +161,20 @@
     button:focus-visible,
     input:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 
-    .card { padding: 16px; }
+    .card { padding: var(--space-5); }
 
     .summary-grid {
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 12px;
+      gap: var(--space-3);
     }
 
     .summary-item {
-      background: var(--surface-soft);
+      background: linear-gradient(180deg, var(--surface), var(--surface-soft));
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
+      border-radius: 14px;
+      padding: var(--space-4);
+      box-shadow: var(--shadow-soft);
     }
 
     .summary-label {
@@ -144,21 +184,21 @@
       letter-spacing: 0.04em;
     }
 
-    .summary-value { font-size: 1.6rem; font-weight: 700; }
+    .summary-value { font-size: clamp(1.35rem, 2vw, 1.9rem); font-weight: 800; line-height: 1.15; }
 
     .question-grid {
       display: grid;
       grid-template-columns: 1.4fr 2fr;
-      gap: 16px;
+      gap: var(--space-4);
       align-items: stretch;
     }
 
-    .qa-stack { display: grid; gap: 12px; }
+    .qa-stack { display: grid; gap: var(--space-3); }
 
     .question-card {
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
+      border-radius: 14px;
+      padding: var(--space-4);
       background: var(--surface-soft);
     }
 
@@ -172,7 +212,7 @@
     .map-layout {
       display: grid;
       grid-template-columns: 2fr 1fr;
-      gap: 14px;
+      gap: var(--space-4);
       align-items: start;
     }
 
@@ -180,8 +220,9 @@
       width: 100%;
       min-height: 460px;
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 16px;
       overflow: hidden;
+      box-shadow: var(--shadow-soft);
     }
 
     .map-filter-bar {
@@ -291,10 +332,11 @@
     .source-card,
     .signal-card {
       border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--surface-soft);
-      padding: 12px;
-      min-height: 150px;
+      border-radius: 14px;
+      background: var(--surface);
+      padding: var(--space-4);
+      min-height: 170px;
+      box-shadow: var(--shadow-soft);
     }
 
     .source-card.connected {
@@ -314,10 +356,15 @@
 
     .insight-card {
       border: 1px solid var(--border);
-      border-left: 6px solid #93c5fd;
-      border-radius: 12px;
-      background: var(--surface-soft);
-      padding: 12px;
+      border-top: 5px solid #93c5fd;
+      border-radius: 14px;
+      background: var(--surface);
+      padding: var(--space-4);
+      min-height: 210px;
+      display: grid;
+      align-content: start;
+      gap: var(--space-2);
+      box-shadow: var(--shadow-soft);
     }
 
     .insight-card.medium { border-left-color: #fbbf24; }
@@ -362,6 +409,140 @@
       border: 0;
     }
 
+    .hero-copy {
+      max-width: 760px;
+      display: grid;
+      gap: var(--space-2);
+    }
+
+    .hero-copy .subtitle {
+      font-size: 1.2rem;
+      color: var(--brand-strong);
+      font-weight: 700;
+    }
+
+    .last-updated {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 9px 12px;
+      background: var(--surface-soft);
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: var(--space-3);
+      margin-bottom: var(--space-3);
+    }
+
+    .section-heading p {
+      margin: 0;
+      max-width: 720px;
+    }
+
+    .status-badge,
+    .type-badge,
+    .severity-badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      padding: 4px 9px;
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .status-badge.checking {
+      color: var(--warn);
+      border-color: color-mix(in srgb, var(--warn) 35%, var(--border));
+      background: color-mix(in srgb, var(--warn) 9%, var(--surface));
+    }
+
+    .severity-badge.high,
+    .severity-badge.critical,
+    .severity-badge.danger,
+    .severity-badge.error {
+      color: var(--danger);
+      border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+      background: color-mix(in srgb, var(--danger) 9%, var(--surface));
+    }
+
+    .severity-badge.warning,
+    .severity-badge.medium {
+      color: var(--warn);
+      border-color: color-mix(in srgb, var(--warn) 35%, var(--border));
+      background: color-mix(in srgb, var(--warn) 9%, var(--surface));
+    }
+
+    .type-badge.incident { color: #1d4ed8; background: color-mix(in srgb, #3b82f6 11%, var(--surface)); }
+    .type-badge.weather { color: #047857; background: color-mix(in srgb, #10b981 11%, var(--surface)); }
+    .type-badge.streetworks,
+    .type-badge.permit,
+    .type-badge.activity,
+    .type-badge.section58 { color: #b45309; background: color-mix(in srgb, #f59e0b 13%, var(--surface)); }
+
+    .source-card {
+      display: grid;
+      gap: var(--space-2);
+      align-content: start;
+    }
+
+    .source-card h3,
+    .signal-card h3,
+    .insight-card h3 {
+      font-size: 1.05rem;
+      line-height: 1.25;
+    }
+
+    .signal-card {
+      display: grid;
+      gap: var(--space-2);
+      align-content: start;
+    }
+
+    .signal-title {
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .signal-description {
+      color: var(--muted);
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .signal-meta {
+      display: grid;
+      gap: 3px;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .map-shell {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: var(--space-3);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .footer {
+      padding: var(--space-5);
+      color: var(--muted);
+      display: grid;
+      gap: var(--space-1);
+    }
+
     @media (max-width: 1080px) {
       .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .question-grid,
@@ -369,21 +550,31 @@
       .side-panel { min-height: initial; }
       #map { min-height: 360px; }
     }
+
+    @media (max-width: 720px) {
+      body { padding: 14px; }
+      .header { flex-direction: column; padding: 22px; }
+      .header-actions { justify-content: flex-start; }
+      .summary-grid,
+      .source-grid,
+      .signals-grid,
+      .insights-grid { grid-template-columns: 1fr; }
+      .card { padding: var(--space-4); }
+    }
   </style>
 </head>
 <body>
   <div class="page">
     <header class="header" aria-label="Dashboard header">
-      <div>
+      <div class="hero-copy">
+        <div class="eyebrow">Blackpool civic intelligence prototype</div>
         <h1>Town Warden</h1>
-        <div class="subtitle">Public civic status dashboard for Blackpool</div>
-        <div class="caption">For residents asking: Is everything OK? Where are risks now? What is changing?</div>
-        <div class="caption">Experimental civic intelligence prototype. Not official public authority advice. For emergencies, use official channels.</div>
+        <div class="subtitle">A live public-source dashboard for local civic signals, street works, weather, and incident context.</div>
+        <div class="caption">Experimental civic intelligence prototype. Not official public authority advice.</div>
       </div>
       <div class="header-actions">
-        <button id="themeToggle" type="button" aria-label="Toggle dark mode">
-          <span aria-hidden="true">🌓</span> Theme
-        </button>
+        <button id="themeToggle" type="button" aria-label="Toggle dark mode">Theme</button>
+        <div class="last-updated">Last updated: <span id="heroUpdated">--</span></div>
         <div id="statusPill" class="status-pill" role="status" aria-live="polite">Connecting...</div>
       </div>
     </header>
@@ -397,24 +588,24 @@
         <div class="summary-item"><div class="summary-label">Insights</div><div class="summary-value" id="sumInsights">--</div></div>
       </div>
       <div class="caption">System health shows whether Town Warden is working. Civic risk reflects current public-source signals.</div>
-      <div class="dev-link">Developer diagnostics are separated on <a href="./dev.html">dev.html</a>.</div>
+      <div class="dev-link">Technical view: <a href="./dev.html">developer dashboard</a>.</div>
     </section>
 
     <section class="card question-grid" aria-label="Status questions">
       <div class="qa-stack">
         <div class="question-card">
           <strong>What is the civic risk?</strong>
-          <div class="answer" id="answerEverything">Checking latest status…</div>
-          <div class="meta">Connection: <span id="heroConnection">Connecting...</span> | Updated: <span id="heroUpdated">--</span></div>
+          <div class="answer" id="answerEverything">Checking latest status...</div>
+          <div class="meta">Civic risk reflects current public-source signals, not whether the app is online.</div>
         </div>
         <div class="question-card">
           <strong>Where are the risks right now?</strong>
-          <div class="answer" id="answerRiskNow">Loading area risk…</div>
+          <div class="answer" id="answerRiskNow">Loading area risk...</div>
           <div class="meta" id="answerRiskHint">Risk zones are refreshed from runtime updates.</div>
         </div>
         <div class="question-card">
-          <strong>What’s changing?</strong>
-          <div class="answer" id="answerChanging">Watching latest civic signals…</div>
+          <strong>What's changing?</strong>
+          <div class="answer" id="answerChanging">Watching latest civic signals...</div>
           <div class="meta">Automated signals only; not official authority direction.</div>
         </div>
       </div>
@@ -425,14 +616,24 @@
     </section>
 
     <section class="card" aria-label="Latest civic signals">
-      <h2>Latest Civic Signals</h2>
+      <div class="section-heading">
+        <div>
+          <h2>Latest Civic Signals</h2>
+          <p class="caption">Recent public-source signals translated into plain English.</p>
+        </div>
+      </div>
       <div id="latestSignals" class="signals-grid"><div class="meta">Loading latest signals...</div></div>
     </section>
 
     <section class="card" aria-label="Blackpool risk map and context">
-      <h2>Blackpool Risk & Signal Map</h2>
-      <div class="map-layout">
+      <div class="section-heading">
         <div>
+          <h2>Blackpool Risk & Signal Map</h2>
+          <p class="caption">Mapped signals and rough risk zones for the Blackpool pilot area.</p>
+        </div>
+      </div>
+      <div class="map-layout">
+        <div class="map-shell">
           <div class="map-filter-bar" aria-label="Map filters">
             <button type="button" class="active" data-map-filter="all">All</button>
             <button type="button" data-map-filter="streetworks">Street works</button>
@@ -484,10 +685,20 @@
     </section>
 
     <section class="card" aria-label="Agent insights">
-      <h2>Agent Insights</h2>
-      <div class="caption">Insights are generated from available public data sources and may reflect current source coverage.</div>
+      <div class="section-heading">
+        <div>
+          <h2>Agent Insights</h2>
+          <p class="caption">Generated summaries from available public data sources. Coverage can affect what the system sees.</p>
+        </div>
+      </div>
       <div id="publicInsights" class="insights-grid"><div class="meta">No source-limited insights available yet.</div></div>
     </section>
+
+    <footer class="footer">
+      <strong>Built as a civic-tech prototype for Blackpool.</strong>
+      <span>Not an official council, police, NHS, or emergency-service system.</span>
+      <span>Data sources: Police.uk, Open-Meteo, Street Manager.</span>
+    </footer>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -511,7 +722,7 @@
       description: "Weather context"
     },
     "Street Manager": {
-      title: "Street Works & Roadworks",
+      title: "Street Works",
       source: "Street Manager",
       description: "Live street works / roadworks notifications"
     }
@@ -564,8 +775,16 @@
   function sourceIsActive(info) {
     const status = String(info?.status || "").toLowerCase();
     if (["connected", "healthy", "ok", "live", "enabled"].includes(status)) return true;
-    if (["pending", "disabled", "error", "failed", "offline", "unavailable"].includes(status)) return false;
+    if (["pending", "checking", "disabled", "error", "failed", "offline", "unavailable", "disconnected"].includes(status)) return false;
     return (Number(info?.records_returned || 0) + Number(info?.events_emitted || 0)) > 0;
+  }
+
+  function sourceStatus(info) {
+    const status = String(info?.status || "checking").toLowerCase();
+    if (sourceIsActive(info)) return { label: "Connected", css: "connected" };
+    if (["checking", "pending"].includes(status)) return { label: "Checking", css: "checking" };
+    if (["disabled"].includes(status)) return { label: "Disabled", css: "checking" };
+    return { label: "Unavailable", css: "error" };
   }
 
   function streetManagerIsLive(sourceHealth = latestSourceHealth) {
@@ -593,6 +812,25 @@
     return type.charAt(0).toUpperCase() + type.slice(1);
   }
 
+  function signalBadgeClass(event) {
+    const label = signalLabel(event).toLowerCase().replace(/\s+/g, "");
+    if (label.includes("incident")) return "incident";
+    if (label.includes("weather")) return "weather";
+    if (label.includes("permit")) return "permit";
+    if (label.includes("activity")) return "activity";
+    if (label.includes("section")) return "section58";
+    return "streetworks";
+  }
+
+  function signalTitle(event) {
+    if (isStreetManagerEvent(event)) {
+      const metadata = event?.metadata || {};
+      const street = metadata.street_name || metadata.location_description || event.location || "Blackpool";
+      return `${signalLabel(event)} on ${street}`;
+    }
+    return signalLabel(event);
+  }
+
   function signalDescription(event) {
     if (!event) return "No signal detail available.";
     if (isStreetManagerEvent(event)) {
@@ -606,8 +844,9 @@
   }
 
   function updateHeroStatus(connected) {
-    document.getElementById("heroConnection").innerText = connected ? "Connected" : "Disconnected";
     document.getElementById("statusPill").innerText = connected ? "Backend connected" : "Backend disconnected";
+    document.getElementById("statusPill").classList.toggle("connected", connected);
+    document.getElementById("statusPill").classList.toggle("unavailable", !connected);
     document.getElementById("heroUpdated").innerText = new Date().toLocaleTimeString();
   }
 
@@ -666,13 +905,15 @@
     document.getElementById("publicSourceStatus").innerHTML = SOURCE_LABELS.map(name => {
       const info = sources[name] || {};
       const copy = SOURCE_PUBLIC_COPY[name];
-      const active = sourceIsActive(info);
+      const status = sourceStatus(info);
+      const active = status.css === "connected";
       const connectedStreetManager = name === "Street Manager" && active;
       const statusText = connectedStreetManager
         ? "Live street works notifications are being received."
-        : (info.message || (active ? "Live source is available." : "Waiting for source updates."));
+        : (status.css === "checking" ? "Waiting for next source refresh." : info.message || (status.css === "connected" ? "Live source is available." : "Temporarily unavailable."));
       return `
-        <article class="source-card ${active ? "connected" : ""}">
+        <article class="source-card ${status.css === "connected" ? "connected" : ""}">
+          <span class="status-badge ${status.css}">${status.label}</span>
           <h3>${copy.title}</h3>
           <div class="caption">Source: ${copy.source}</div>
           <p>${copy.description}</p>
@@ -696,18 +937,22 @@
 
     container.innerHTML = latestEvents.slice(0, 6).map(event => `
       <article class="signal-card">
-        <h3>${escapeHtml(signalLabel(event))}</h3>
-        <div>${escapeHtml(signalDescription(event))}</div>
-        <div class="caption">${escapeHtml(event.source || "Unknown source")} | ${escapeHtml(event.location || "Blackpool")} | ${escapeHtml(formatTime(event.timestamp))}</div>
+        <span class="type-badge ${signalBadgeClass(event)}">${escapeHtml(signalLabel(event))}</span>
+        <h3 class="signal-title">${escapeHtml(signalTitle(event))}</h3>
+        <div class="signal-description">${escapeHtml(signalDescription(event))}</div>
+        <div class="signal-meta">
+          <span>${escapeHtml(event.location || event.metadata?.street_name || "Blackpool")}</span>
+          <span>${escapeHtml(event.source || "Unknown source")} | ${escapeHtml(formatTime(event.timestamp))}</span>
+        </div>
       </article>
     `).join("");
   }
 
   function severityIcon(severity) {
     const s = (severity || "info").toLowerCase();
-    if (["critical", "high", "danger", "error"].includes(s)) return "🔴";
-    if (["warning", "medium"].includes(s)) return "🟠";
-    return "🟢";
+    if (["critical", "high", "danger", "error"].includes(s)) return "High";
+    if (["warning", "medium"].includes(s)) return "Watch";
+    return "Info";
   }
 
   function extractZoneIdFromText(text) {
@@ -730,11 +975,14 @@
       const zoneId = extractZoneIdFromText(`${item.location || ""} ${item.title || ""} ${item.summary || ""}`);
       return `
       <article class="insight-card ${item.severity || "info"}">
-        <h3><span class="severity-icon" role="img" aria-label="${item.severity || "info"} severity">${severityIcon(item.severity)}</span>${item.title || "Insight"}</h3>
-        <p>${item.summary || "No summary."}</p>
-        <div class="caption">Affected source(s): ${item.source_context || "General"}</div>
+        <span class="severity-badge ${escapeHtml(item.severity || "info")}">${severityIcon(item.severity)}</span>
+        <h3>${escapeHtml(item.title || "Insight")}</h3>
+        <p>${escapeHtml(item.summary || "No summary.")}</p>
+        <div class="caption">Agent: ${escapeHtml(item.agent || "Town Warden")}</div>
+        <div class="caption">Affected source(s): ${escapeHtml(item.source_context || "General")}</div>
+        <div class="caption">Confidence: ${item.confidence !== undefined ? Math.round(Number(item.confidence) * 100) + "%" : "Not stated"}</div>
         <div class="caption">${formatTime(item.timestamp)}</div>
-        ${zoneId ? `<button type="button" data-insight-map="${idx}" class="caption">View on map</button>` : ""}
+        ${zoneId ? `<button type="button" data-insight-map="${idx}">View on map</button>` : ""}
       </article>
     `}).join("");
 
@@ -1088,6 +1336,8 @@
     } catch {
       document.getElementById("publicSourceStatus").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
       document.getElementById("statusPill").innerText = "Backend waking or temporarily unavailable";
+      document.getElementById("statusPill").classList.remove("connected");
+      document.getElementById("statusPill").classList.add("unavailable");
     }
   }
 
@@ -1140,6 +1390,8 @@
     } catch {
       updateSummary({}, {});
       document.getElementById("statusPill").innerText = "Backend waking or temporarily unavailable";
+      document.getElementById("statusPill").classList.remove("connected");
+      document.getElementById("statusPill").classList.add("unavailable");
     }
   }
 
