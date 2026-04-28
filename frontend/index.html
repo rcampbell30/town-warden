@@ -390,19 +390,20 @@
 
     <section class="card" aria-label="Core metrics">
       <div class="summary-grid">
-        <div class="summary-item"><div class="summary-label">Town health</div><div class="summary-value" id="sumHealth">--</div></div>
+        <div class="summary-item"><div class="summary-label">System health</div><div class="summary-value" id="sumHealth">--</div></div>
+        <div class="summary-item"><div class="summary-label">Civic risk</div><div class="summary-value" id="sumRiskZones">--</div></div>
         <div class="summary-item"><div class="summary-label">Active sources</div><div class="summary-value" id="sumSources">--</div></div>
         <div class="summary-item"><div class="summary-label">Signals processed</div><div class="summary-value" id="sumEvents">--</div></div>
-        <div class="summary-item"><div class="summary-label">Risk zones</div><div class="summary-value" id="sumRiskZones">--</div></div>
         <div class="summary-item"><div class="summary-label">Insights</div><div class="summary-value" id="sumInsights">--</div></div>
       </div>
+      <div class="caption">System health shows whether Town Warden is working. Civic risk reflects current public-source signals.</div>
       <div class="dev-link">Developer diagnostics are separated on <a href="./dev.html">dev.html</a>.</div>
     </section>
 
     <section class="card question-grid" aria-label="Status questions">
       <div class="qa-stack">
         <div class="question-card">
-          <strong>Is everything OK?</strong>
+          <strong>What is the civic risk?</strong>
           <div class="answer" id="answerEverything">Checking latest status…</div>
           <div class="meta">Connection: <span id="heroConnection">Connecting...</span> | Updated: <span id="heroUpdated">--</span></div>
         </div>
@@ -614,24 +615,31 @@
     const sources = sourceHealth || data.source_health || data.sources || {};
     latestSourceHealth = sources;
     const publicSources = SOURCE_LABELS;
-    const connected = publicSources.filter(name => sourceIsActive(sources[name])).length;
+    const connected = data.active_sources_count ?? publicSources.filter(name => sourceIsActive(sources[name])).length;
+    const totalSources = data.total_sources_count ?? publicSources.length;
+    const systemScore = data.system_health_score;
+    const systemLabel = data.system_health_label || (systemScore >= 85 ? "Stable" : systemScore >= 60 ? "Degraded" : "Limited");
+    const civicScore = data.civic_risk_score;
+    const civicLabel = data.civic_risk_label || "Unknown";
 
-    document.getElementById("sumHealth").innerText = data.health !== undefined ? `${data.health}/100` : "--";
-    document.getElementById("sumSources").innerText = `${connected}/3`;
+    document.getElementById("sumHealth").innerText = systemScore !== undefined ? `${systemLabel} (${systemScore}/100)` : systemLabel;
+    document.getElementById("sumRiskZones").innerText = civicScore !== null && civicScore !== undefined ? `${civicLabel} (${civicScore}/100)` : civicLabel;
+    document.getElementById("sumSources").innerText = `${connected}/${totalSources}`;
     document.getElementById("sumEvents").innerText = latestAnalytics.total_events ?? data.live_history_count ?? data.history_count ?? latestEvents.length ?? "--";
-    document.getElementById("sumRiskZones").innerText = Object.keys(data.risk_map || latestRiskMap || {}).length;
     document.getElementById("sumInsights").innerText = data.insight_count ?? data.count ?? latestInsights.length;
 
-    const townHealth = data.health ?? 0;
-    const healthClass = townHealth >= 75 ? "risk-stable" : townHealth >= 45 ? "risk-watch" : "risk-elevated";
-    document.getElementById("answerEverything").innerHTML = `<span class="${healthClass}">${townHealth >= 75 ? "Generally stable" : townHealth >= 45 ? "Some concerns to monitor" : "Elevated concern"}</span> (${townHealth}/100)`;
+    const riskClass = civicScore === null || civicScore === undefined
+      ? "risk-watch"
+      : civicScore >= 55 ? "risk-elevated" : civicScore >= 25 ? "risk-watch" : "risk-stable";
+    const riskScoreText = civicScore === null || civicScore === undefined ? "" : ` (${civicScore}/100)`;
+    document.getElementById("answerEverything").innerHTML = `<span class="${riskClass}">${civicLabel}</span>${riskScoreText}`;
 
-    const topRisk = mapData.zones.length
+    const topRisk = data.highest_risk_zone || (mapData.zones.length
       ? [...mapData.zones].sort((a, b) => b.risk_score - a.risk_score)[0]
-      : Object.entries(data.risk_map || latestRiskMap || {}).sort((a, b) => b[1] - a[1])[0];
+      : Object.entries(data.risk_map || latestRiskMap || {}).sort((a, b) => b[1] - a[1])[0]);
     if (topRisk) {
       const zoneName = topRisk.name || topRisk[0];
-      const riskScore = topRisk.risk_score ?? topRisk[1];
+      const riskScore = topRisk.risk_score ?? topRisk.score ?? topRisk[1];
       const level = zoneRiskLevel(riskScore);
       document.getElementById("answerRiskNow").innerHTML = `<span class="${level.css}">${zoneName} - ${level.label}</span>`;
       document.getElementById("answerRiskHint").innerText = `Current risk score: ${Math.round(riskScore)}.`;

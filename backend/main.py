@@ -65,6 +65,8 @@ duplicate_count = 0
 last_source_fetch_time = None
 last_wait_log_bucket = None
 
+REAL_SOURCE_NAMES = ["Police.uk", "Open-Meteo", "Street Manager"]
+
 
 source_health = {
     "Police.uk": {
@@ -918,6 +920,124 @@ def calculate_health(alerts):
     return max(score, 0)
 
 
+def source_is_active(info):
+    status = str((info or {}).get("status") or "").lower()
+    if status in {"connected", "healthy", "ok", "live", "enabled"}:
+        return True
+    if status in {"pending", "disabled", "error", "failed", "offline", "unavailable", "disconnected"}:
+        return False
+
+    return (
+        int((info or {}).get("records_returned") or 0)
+        + int((info or {}).get("events_emitted") or 0)
+    ) > 0
+
+
+def source_has_error(info):
+    status = str((info or {}).get("status") or "").lower()
+    return status in {"error", "failed", "offline", "unavailable", "disconnected"}
+
+
+def risk_label_from_score(score):
+    if score >= 90:
+        return "Critical"
+    if score >= 55:
+        return "Elevated"
+    if score >= 25:
+        return "Watch"
+    return "Low"
+
+
+def highest_risk_zone_summary():
+    if not risk_map:
+        return None
+
+    name, score = max(risk_map.items(), key=lambda item: item[1])
+    return {
+        "name": name,
+        "score": round(score, 1),
+        "risk_level": map_risk_level(score),
+    }
+
+
+def system_status_summary():
+    active_sources = [name for name in REAL_SOURCE_NAMES if source_is_active(source_health.get(name))]
+    source_errors = [
+        {
+            "source": name,
+            "status": source_health.get(name, {}).get("status"),
+            "message": source_health.get(name, {}).get("message"),
+        }
+        for name in REAL_SOURCE_NAMES
+        if source_has_error(source_health.get(name))
+    ]
+
+    score = 100
+    if source_errors:
+        score -= 20 * len(source_errors)
+    if len(active_sources) < len(REAL_SOURCE_NAMES):
+        score -= 10 * (len(REAL_SOURCE_NAMES) - len(active_sources))
+    if ALLOW_SIMULATION:
+        score -= 10
+    if ENVIRONMENT == "production" and not ADMIN_TOKEN:
+        score -= 10
+
+    score = max(0, min(100, score))
+    if score >= 85:
+        label = "Stable"
+    elif score >= 60:
+        label = "Degraded"
+    else:
+        label = "Limited"
+
+    return {
+        "system_health_score": score,
+        "system_health_label": label,
+        "active_sources_count": len(active_sources),
+        "total_sources_count": len(REAL_SOURCE_NAMES),
+        "source_errors": source_errors,
+        "source_status_summary": {
+            "active": active_sources,
+            "errors": source_errors,
+            "simulation_enabled": ALLOW_SIMULATION,
+        },
+        "dev_routes_protected": ENVIRONMENT == "production",
+    }
+
+
+def civic_risk_summary():
+    top_zone = highest_risk_zone_summary()
+    highest_score = top_zone["score"] if top_zone else 0
+    risk_from_zones = min(100, int(round((highest_score / 150) * 100))) if highest_score else 0
+
+    severe_insights = len([
+        item for item in insights[-50:]
+        if str(item.get("severity") or "").lower() in {"critical", "high", "danger", "error"}
+    ])
+    medium_insights = len([
+        item for item in insights[-50:]
+        if str(item.get("severity") or "").lower() in {"warning", "medium", "watch"}
+    ])
+
+    score = min(100, risk_from_zones + min(20, severe_insights * 5) + min(10, medium_insights * 2))
+    system_summary = system_status_summary()
+
+    if system_summary["active_sources_count"] == 0 or system_summary["source_errors"]:
+        return {
+            "civic_risk_score": None,
+            "civic_risk_label": "Limited confidence",
+            "highest_risk_zone": top_zone,
+            "risk_context": "Source coverage is degraded, so civic risk is uncertain.",
+        }
+
+    return {
+        "civic_risk_score": score,
+        "civic_risk_label": risk_label_from_score(score),
+        "highest_risk_zone": top_zone,
+        "risk_context": "Civic risk reflects current public-source signals, not system uptime.",
+    }
+
+
 def run_agents(events):
     primary_signals = []
 
@@ -959,6 +1079,9 @@ def run_agents(events):
 
 
 def runtime_status():
+    system_summary = system_status_summary()
+    risk_summary = civic_risk_summary()
+
     return {
         "simulation_enabled": ALLOW_SIMULATION,
         "duplicates_skipped": duplicate_count,
@@ -973,6 +1096,8 @@ def runtime_status():
         "environment": ENVIRONMENT,
         "dev_routes_protected": ENVIRONMENT == "production",
         "public_dev_routes_protected": ENVIRONMENT == "production",
+        **system_summary,
+        **risk_summary,
     }
 
 

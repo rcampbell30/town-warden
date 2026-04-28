@@ -125,6 +125,11 @@
     </div>
 
     <div class="card">
+      <h2>Status Diagnostics</h2>
+      <div id="statusDiagnostics" class="meta">Waiting for runtime status diagnostics.</div>
+    </div>
+
+    <div class="card">
       <h2>Street Manager Ingestion</h2>
       <button onclick="refreshStreetManagerIngestion()">Refresh Ingestion</button>
       <div id="streetManagerIngestion" class="meta">Waiting for Street Manager ingestion diagnostics.</div>
@@ -227,6 +232,32 @@
 
   function latestStreetMetadata(event) {
     return event?.metadata || {};
+  }
+
+  function renderStatusDiagnostics(data = {}) {
+    const sourceErrors = data.source_errors || [];
+    const active = data.active_sources_count ?? Object.values(latestSourceHealth).filter(info => {
+      const status = String(info?.status || "").toLowerCase();
+      return ["connected", "healthy", "ok", "live", "enabled"].includes(status);
+    }).length;
+    const total = data.total_sources_count ?? 3;
+
+    document.getElementById("statusDiagnostics").innerHTML = `
+      <div class="metric-grid">
+        <div class="metric"><span>System health</span><strong>${data.system_health_score ?? "n/a"}</strong></div>
+        <div class="metric"><span>Civic risk</span><strong>${data.civic_risk_score ?? data.civic_risk_label ?? "n/a"}</strong></div>
+        <div class="metric"><span>Active sources</span><strong>${active}/${total}</strong></div>
+        <div class="metric"><span>Dev routes protected</span><strong>${String(data.dev_routes_protected ?? "n/a")}</strong></div>
+      </div>
+      <div class="list-item">
+        <strong>Source errors</strong>
+        <div class="meta">${sourceErrors.length ? sourceErrors.map(item => `${item.source}: ${item.status} - ${item.message || ""}`).join("<br>") : "none"}</div>
+      </div>
+      <div class="list-item">
+        <strong>Highest risk zone</strong>
+        <div class="meta">${data.highest_risk_zone ? `${data.highest_risk_zone.name}: ${data.highest_risk_zone.score} (${data.highest_risk_zone.risk_level})` : "n/a"}</div>
+      </div>
+    `;
   }
 
   function mapEvents() {
@@ -381,8 +412,10 @@
       if (!response.ok) throw new Error("source health unavailable");
       const data = await response.json();
       renderDevSourceHealth(data);
+      renderStatusDiagnostics(data);
     } catch {
       document.getElementById("devSourceHealth").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
+      document.getElementById("statusDiagnostics").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
     }
   }
 
@@ -517,6 +550,7 @@
       renderDevInsights();
       renderAgentComms((data.agent_log || []).slice(-50));
       renderDevSourceHealth({ sources: data.source_health || data.sources || {} });
+      renderStatusDiagnostics(data);
       renderStreetManagerIngestion();
       renderMapDiagnostics();
     };
