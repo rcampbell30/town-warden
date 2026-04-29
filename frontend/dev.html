@@ -183,6 +183,7 @@
 
     <div class="card" id="developerControlsCard">
       <h2>Developer Controls</h2>
+      <div class="meta">Admin actions require the backend admin token each time. The token is never stored in this page.</div>
       <div class="controls-row">
         <button onclick="devAction('/dev/force-refresh')">Force Source Refresh</button>
         <button class="secondary" onclick="devAction('/dev/clear-live-feed')">Clear Live Feed</button>
@@ -512,17 +513,23 @@
   }
 
   async function devAction(path, confirmFirst = false) {
-    if (!IS_LOCAL_FRONTEND) {
-      document.getElementById("devPanel").innerText = "Developer controls are disabled on non-local frontend.";
+    if (confirmFirst && !confirm("Reset local runtime and database?")) return;
+
+    const token = prompt("Enter admin token for this action. It will not be stored.");
+    if (!token) {
+      document.getElementById("devPanel").innerText = "Developer action cancelled: admin token required.";
       return;
     }
 
-    if (confirmFirst && !confirm("Reset local runtime and database?")) return;
-
     try {
-      const response = await fetch(`${API_BASE}${path}`, { method: "POST" });
+      const response = await fetch(`${API_BASE}${path}`, {
+        method: "POST",
+        headers: {
+          "x-admin-token": token
+        }
+      });
       const data = await response.json();
-      document.getElementById("devPanel").innerText = data.message || "Action finished.";
+      document.getElementById("devPanel").innerText = data.message || data.detail || "Action finished.";
       loadSourceHealth();
       loadHistory();
       loadAnalytics();
@@ -567,10 +574,6 @@
       renderStreetManagerIngestion();
       renderMapDiagnostics();
     };
-  }
-
-  if (!IS_LOCAL_FRONTEND) {
-    document.getElementById("developerControlsCard").style.display = "none";
   }
 
   setInterval(loadSourceHealth, 12000);
