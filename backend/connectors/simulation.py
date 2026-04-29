@@ -3,14 +3,23 @@
 import random
 from datetime import datetime
 
+from town_config import get_town_config
+
 
 def generate_event():
+    town_config = get_town_config()
+    zones = town_config.get("zones", [])
+    zone_names = [zone.get("label") or zone.get("name") for zone in zones] or [town_config.get("display_name", "Town")]
+    north_zone = next((name for name in zone_names if "north" in name.lower()), zone_names[0])
+    south_zone = next((name for name in zone_names if "south" in name.lower()), zone_names[-1])
+    centre_zone = next((name for name in zone_names if "centre" in name.lower() or "center" in name.lower()), zone_names[0])
+
     events = [
-        {"type": "infrastructure", "location": "North Shore", "text": "simulated pothole reported near promenade"},
-        {"type": "infrastructure", "location": "North Shore", "text": "simulated road surface cracking reported"},
-        {"type": "waste", "location": "South Shore", "text": "simulated missed bin collection reported"},
-        {"type": "incident", "location": "Town Centre", "text": "simulated police incident reported near high street"},
-        {"type": "transport", "location": "Blackpool South", "text": "simulated bus route delay reported"},
+        {"type": "infrastructure", "location": north_zone, "text": "simulated pothole reported near a local road"},
+        {"type": "infrastructure", "location": north_zone, "text": "simulated road surface cracking reported"},
+        {"type": "waste", "location": south_zone, "text": "simulated missed bin collection reported"},
+        {"type": "incident", "location": centre_zone, "text": "simulated public incident signal near a local centre"},
+        {"type": "transport", "location": south_zone, "text": "simulated bus route delay reported"},
     ]
 
     event = random.choice(events)

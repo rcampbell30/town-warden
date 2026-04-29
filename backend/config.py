@@ -38,6 +38,7 @@ def _env_float(name, default):
 
 ALLOW_SIMULATION = _env_bool("ALLOW_SIMULATION", False)
 
+TOWN_CONFIG = os.getenv("TOWN_CONFIG", "config/towns/blackpool.json").strip() or "config/towns/blackpool.json"
 BLACKPOOL_LAT = 53.8175
 BLACKPOOL_LNG = -3.0357
 TOWN_WARDEN_AREA_NAME = os.getenv("TOWN_WARDEN_AREA_NAME", "Blackpool").strip() or "Blackpool"

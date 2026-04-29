@@ -1361,10 +1361,10 @@
     <header class="hero" aria-label="Town Warden public dashboard header">
       <div class="hero-grid">
         <div class="hero-copy">
-          <span class="hero-kicker">Blackpool Civic Intelligence Prototype</span>
-          <h1>Town Warden</h1>
-          <div class="subtitle">A clearer view of local civic signals for Blackpool.</div>
-          <p class="hero-description">Town Warden brings together public incident intelligence, weather context, and live street works notifications to help residents and stakeholders understand what is changing locally.</p>
+          <span class="hero-kicker" id="dashboardSubtitle">Blackpool Civic Intelligence Prototype</span>
+          <h1 id="dashboardTitle">Town Warden</h1>
+          <div class="subtitle" id="dashboardSummary">A clearer view of local civic signals for Blackpool.</div>
+          <p class="hero-description" id="heroDescription">Town Warden brings together public incident intelligence, weather context, and live street works notifications to help residents and stakeholders understand what is changing locally.</p>
         </div>
         <div class="hero-actions" aria-label="Connection status">
           <div class="hero-tools">
@@ -1372,7 +1372,7 @@
             <div class="last-updated">Last updated: <span id="heroUpdated">--</span></div>
             <div id="statusPill" class="status-pill" role="status" aria-live="polite">Connecting...</div>
           </div>
-          <div class="hero-disclaimer">Experimental civic intelligence prototype. Not official public authority advice. For emergencies, use official channels.</div>
+          <div class="hero-disclaimer" id="publicDisclaimer">Experimental civic intelligence prototype. Not official public authority advice. For emergencies, use official channels.</div>
         </div>
       </div>
     </header>
@@ -1425,7 +1425,7 @@
       <div class="section-heading">
         <div>
           <h2 id="civicPictureTitle">Current Civic Picture</h2>
-          <p>Plain-English status for what the system can currently see across the Blackpool pilot area.</p>
+          <p id="civicPictureIntro">Plain-English status for what the system can currently see across the Blackpool pilot area.</p>
         </div>
       </div>
       <div class="overview-grid">
@@ -1475,7 +1475,7 @@
       <div class="section-heading">
         <div>
           <h2 id="mapTitle">Blackpool Risk & Signal Map</h2>
-          <p>Mapped street works, public incident signals, and risk-zone context for the Blackpool pilot area.</p>
+          <p id="mapIntro">Mapped street works, public incident signals, and risk-zone context for the Blackpool pilot area.</p>
         </div>
       </div>
       <div class="map-layout">
@@ -1492,7 +1492,7 @@
               <button type="button" data-map-filter="high">High risk only</button>
             </div>
           </div>
-          <div id="map" aria-label="Interactive map of Blackpool civic risk zones"></div>
+          <div id="map" aria-label="Interactive civic risk map"></div>
           <p class="map-note">Some locations are approximate where public sources do not provide precise coordinates.</p>
         </div>
         <aside class="side-panel" aria-label="Selected map detail panel">
@@ -1549,12 +1549,12 @@
 
     <footer class="footer">
       <div class="footer-meta">
-        <strong>Built as a civic-tech prototype for Blackpool.</strong>
-        <span>Data sources: Police.uk, Open-Meteo, Street Manager.</span>
+        <strong id="footerText">Built as a civic-tech prototype for Blackpool.</strong>
+        <span id="footerSources">Data sources: Police.uk, Open-Meteo, Street Manager.</span>
         <span>Not an official council, police, NHS, or emergency-service system.</span>
       </div>
       <div class="footer-links">
-        <a class="footer-link" href="https://github.com/rcampbell30/town-warden">Project GitHub</a>
+        <a class="footer-link" id="projectGitHubLink" href="https://github.com/rcampbell30/town-warden">Project GitHub</a>
         <a class="footer-link" href="./dev.html">Developer dashboard</a>
       </div>
     </footer>
@@ -1569,7 +1569,31 @@
   const API_BASE = IS_LOCAL_FRONTEND ? "http://127.0.0.1:8000" : "https://town-warden.onrender.com";
   const WS_URL = IS_LOCAL_FRONTEND ? "ws://127.0.0.1:8000/ws" : "wss://town-warden.onrender.com/ws";
   const SOURCE_LABELS = ["Police.uk", "Open-Meteo", "Street Manager"];
-  const SOURCE_PUBLIC_COPY = {
+  const SOURCE_NAME_TO_ID = {
+    "Police.uk": "police_uk",
+    "Open-Meteo": "open_meteo",
+    "Street Manager": "street_manager"
+  };
+  const DEFAULT_TOWN_CONFIG = {
+    town_id: "blackpool",
+    town_name: "Blackpool",
+    display_name: "Blackpool",
+    dashboard_title: "Town Warden",
+    dashboard_subtitle: "Blackpool Civic Intelligence Prototype",
+    public_disclaimer: "Experimental civic intelligence prototype. Not official public authority advice. For emergencies, use official channels.",
+    map_centre: { lat: 53.8175, lng: -3.0497, zoom: 12 },
+    zones: [
+      { id: "town_centre", label: "Town Centre", fallback_lat: 53.8175, fallback_lng: -3.0497, radius_m: 900 },
+      { id: "north_shore", label: "North Shore", fallback_lat: 53.8331, fallback_lng: -3.0541, radius_m: 1000 },
+      { id: "south_shore", label: "South Shore", fallback_lat: 53.7929, fallback_lng: -3.0528, radius_m: 1100 }
+    ],
+    enabled_sources: { police_uk: true, open_meteo: true, street_manager: true },
+    source_labels: { police_uk: "Police.uk", open_meteo: "Open-Meteo", street_manager: "Street Manager" },
+    footer_text: "Built as a civic-tech prototype for Blackpool. Not an official council, police, NHS, or emergency-service system.",
+    project_links: { github: "https://github.com/rcampbell30/town-warden" }
+  };
+  let townConfig = { ...DEFAULT_TOWN_CONFIG };
+  let SOURCE_PUBLIC_COPY = {
     "Police.uk": {
       title: "Incidents",
       source: "Police.uk",
@@ -1609,6 +1633,92 @@
     "Open-Meteo": L.layerGroup(),
     "Street Manager": L.layerGroup()
   };
+
+  function townDisplayName() {
+    return townConfig.display_name || townConfig.town_name || "this town";
+  }
+
+  function enabledPublicSources() {
+    return SOURCE_LABELS.filter(name => townConfig.enabled_sources?.[SOURCE_NAME_TO_ID[name]] !== false);
+  }
+
+  function mapCentre() {
+    const centre = townConfig.map_centre || DEFAULT_TOWN_CONFIG.map_centre;
+    return {
+      lat: Number(centre.lat ?? DEFAULT_TOWN_CONFIG.map_centre.lat),
+      lng: Number(centre.lng ?? DEFAULT_TOWN_CONFIG.map_centre.lng),
+      zoom: Number(centre.zoom ?? DEFAULT_TOWN_CONFIG.map_centre.zoom)
+    };
+  }
+
+  function configZonesAsMapZones() {
+    return (townConfig.zones || DEFAULT_TOWN_CONFIG.zones).map(zone => ({
+      id: zone.id || String(zone.label || zone.name || "zone").toLowerCase().replace(/[^a-z0-9]+/g, "_"),
+      name: zone.label || zone.name || "Local area",
+      label: zone.label || zone.name || "Local area",
+      lat: Number(zone.fallback_lat || zone.lat || mapCentre().lat),
+      lng: Number(zone.fallback_lng || zone.lng || mapCentre().lng),
+      radius_m: Number(zone.radius_m || 1000),
+      risk_score: 0,
+      risk_level: "low",
+      latest_signal_count: 0,
+      dominant_source: "No dominant source",
+      summary: "No current accumulated civic risk.",
+      source_coverage_note: "Waiting for local source coverage.",
+      trend: "stable"
+    }));
+  }
+
+  function applyTownConfig(config) {
+    townConfig = {
+      ...DEFAULT_TOWN_CONFIG,
+      ...(config || {}),
+      map_centre: { ...DEFAULT_TOWN_CONFIG.map_centre, ...(config?.map_centre || {}) },
+      enabled_sources: { ...DEFAULT_TOWN_CONFIG.enabled_sources, ...(config?.enabled_sources || {}) },
+      source_labels: { ...DEFAULT_TOWN_CONFIG.source_labels, ...(config?.source_labels || {}) },
+      project_links: { ...DEFAULT_TOWN_CONFIG.project_links, ...(config?.project_links || {}) }
+    };
+
+    const displayName = townDisplayName();
+    document.title = `${townConfig.dashboard_title || "Town Warden"} - ${displayName}`;
+    document.getElementById("dashboardTitle").innerText = townConfig.dashboard_title || "Town Warden";
+    document.getElementById("dashboardSubtitle").innerText = townConfig.dashboard_subtitle || `${displayName} Civic Intelligence Prototype`;
+    document.getElementById("dashboardSummary").innerText = `A clearer view of local civic signals for ${displayName}.`;
+    document.getElementById("heroDescription").innerText = `${townConfig.dashboard_title || "Town Warden"} brings together public incident intelligence, weather context, and live street works notifications to help residents and stakeholders understand what is changing locally.`;
+    document.getElementById("publicDisclaimer").innerText = townConfig.public_disclaimer || DEFAULT_TOWN_CONFIG.public_disclaimer;
+    document.getElementById("civicPictureIntro").innerText = `Plain-English status for what the system can currently see across the ${displayName} pilot area.`;
+    document.getElementById("mapTitle").innerText = `${displayName} Risk & Signal Map`;
+    document.getElementById("mapIntro").innerText = `Mapped street works, public incident signals, and risk-zone context for the ${displayName} pilot area.`;
+    document.getElementById("locationSearch").placeholder = `Search ${configZonesAsMapZones().map(zone => zone.name).slice(0, 2).join(", ") || displayName}, address...`;
+    document.getElementById("footerText").innerText = townConfig.footer_text || `Built as a civic-tech prototype for ${displayName}.`;
+    const enabledSourceLabels = enabledPublicSources().map(name => {
+      const sourceId = SOURCE_NAME_TO_ID[name];
+      return townConfig.source_labels?.[sourceId] || name;
+    });
+    document.getElementById("footerSources").innerText = `Data sources: ${enabledSourceLabels.join(", ")}.`;
+    const githubLink = townConfig.project_links?.github || DEFAULT_TOWN_CONFIG.project_links.github;
+    document.getElementById("projectGitHubLink").href = githubLink;
+
+    SOURCE_PUBLIC_COPY["Police.uk"].source = townConfig.source_labels?.police_uk || "Police.uk";
+    SOURCE_PUBLIC_COPY["Open-Meteo"].source = townConfig.source_labels?.open_meteo || "Open-Meteo";
+    SOURCE_PUBLIC_COPY["Street Manager"].source = townConfig.source_labels?.street_manager || "Street Manager";
+    SOURCE_PUBLIC_COPY["Street Manager"].limitation = `Filtered to the ${displayName} pilot area where location data is available.`;
+
+    if (!mapData.zones.length) {
+      mapData.zones = configZonesAsMapZones();
+    }
+  }
+
+  async function loadTownConfig() {
+    try {
+      const response = await fetch(`${API_BASE}/town-config`);
+      if (!response.ok) throw new Error("town config unavailable");
+      const config = await response.json();
+      applyTownConfig(config);
+    } catch {
+      applyTownConfig(DEFAULT_TOWN_CONFIG);
+    }
+  }
 
   // Shared thresholds for public wording and map colors.
   function zoneRiskLevel(value) {
@@ -1697,10 +1807,10 @@
     if (event?.title && !String(event.title).toLowerCase().includes("unknown reference")) return event.title;
     if (isStreetManagerEvent(event)) {
       const metadata = event?.metadata || {};
-      const street = metadata.street_name || metadata.location_description || event.location || "Blackpool";
+      const street = metadata.street_name || metadata.location_description || event.location || townDisplayName();
       return `${signalLabel(event)} on ${street}`;
     }
-    const location = event?.location || event?.zone || "Blackpool";
+    const location = event?.location || event?.zone || townDisplayName();
     return `${signalLabel(event)} in ${location}`;
   }
 
@@ -1728,7 +1838,7 @@
     const viewData = { ...latestRuntimeStatus, ...(data || {}) };
     const sources = sourceHealth || viewData.source_health || viewData.sources || latestSourceHealth || {};
     latestSourceHealth = sources;
-    const publicSources = SOURCE_LABELS;
+    const publicSources = enabledPublicSources();
     const connected = viewData.active_sources_count ?? publicSources.filter(name => sourceIsActive(sources[name])).length;
     const totalSources = viewData.total_sources_count ?? publicSources.length;
     const systemScore = viewData.system_health_score;
@@ -1782,7 +1892,7 @@
       document.getElementById("answerChanging").innerText = "Street works notifications are now flowing into Town Warden.";
     } else {
       document.getElementById("answerChanging").innerText = latest
-        ? `${signalLabel(latest)} update in ${latest.location || "Blackpool"} (${latest.source || "Unknown source"}).`
+        ? `${signalLabel(latest)} update in ${latest.location || townDisplayName()} (${latest.source || "Unknown source"}).`
         : "No new public civic signals in the latest checks. Watching source refresh cycles.";
     }
   }
@@ -1790,7 +1900,7 @@
   function renderPublicSourceStatus(sourceHealth) {
     const sources = sourceHealth || latestSourceHealth || {};
     document.getElementById("publicSourceStatus").className = "source-grid";
-    document.getElementById("publicSourceStatus").innerHTML = SOURCE_LABELS.map(name => {
+    document.getElementById("publicSourceStatus").innerHTML = enabledPublicSources().map(name => {
       const info = sources[name] || {};
       const copy = SOURCE_PUBLIC_COPY[name];
       const status = sourceStatus(info);
@@ -1833,7 +1943,7 @@
         <h3 class="signal-title">${escapeHtml(signalTitle(event))}</h3>
         <div class="signal-description">${escapeHtml(cleanPublicText(signalDescription(event)))}</div>
         <div class="signal-meta">
-          <span>${escapeHtml(event.location || event.metadata?.street_name || "Blackpool")}</span>
+          <span>${escapeHtml(event.location || event.metadata?.street_name || townDisplayName())}</span>
           <span>${escapeHtml(event.source || "Unknown source")}</span>
           <span>${escapeHtml(formatTime(event.timestamp))}</span>
         </div>
@@ -1850,6 +1960,12 @@
 
   function extractZoneIdFromText(text) {
     const lower = String(text || "").toLowerCase();
+    const configured = (mapData.zones.length ? mapData.zones : configZonesAsMapZones()).find(zone => {
+      const names = [zone.name, zone.label, zone.id].filter(Boolean).map(value => String(value).toLowerCase());
+      return names.some(name => lower.includes(name.replace(/_/g, " ")));
+    });
+    if (configured) return configured.id;
+
     if (lower.includes("north shore")) return "north_shore";
     if (lower.includes("south shore")) return "south_shore";
     if (lower.includes("town centre") || lower.includes("town center")) return "town_centre";
@@ -1900,7 +2016,7 @@
   function inferZoneForEvent(event) {
     const zoneId = extractZoneIdFromText(`${event.zone || ""} ${event.location || ""} ${event.text || ""}`);
     const fallback = mapData.zones.find(z => z.id === zoneId) || mapData.zones[0];
-    return fallback ? fallback.name : "Town Centre";
+    return fallback ? fallback.name : townDisplayName();
   }
 
   // Approximate marker handling:
@@ -1911,8 +2027,9 @@
     if (typeof signal.lat === "number" && typeof signal.lng === "number" && confidence === "exact") {
       return [signal.lat, signal.lng];
     }
-    const baseLat = Number(signal.lat || 53.8166);
-    const baseLng = Number(signal.lng || -3.0506);
+    const centre = mapCentre();
+    const baseLat = Number(signal.lat || centre.lat);
+    const baseLng = Number(signal.lng || centre.lng);
     const step = (index % 7) * 0.00055;
     const direction = index % 2 === 0 ? 1 : -1;
     return [baseLat + (step * direction), baseLng + (step * -direction)];
@@ -2106,13 +2223,13 @@
       const sourceName = sourceLayerName(signal);
       const reference = eventReference(signal);
       const marker = L.marker(coords, {
-        title: `${sourceName}: ${signal.location || signal.zone || "Blackpool"}`,
+        title: `${sourceName}: ${signal.location || signal.zone || townDisplayName()}`,
         icon: markerIcon(signal)
       });
       marker.bindPopup(`
         <strong>${escapeHtml(signal.title || signalLabel(signal))}</strong><br>
         Source: ${escapeHtml(sourceName)}<br>
-        Location: ${escapeHtml(signal.location || signal.zone || "Blackpool")}<br>
+        Location: ${escapeHtml(signal.location || signal.zone || townDisplayName())}<br>
         Zone: ${escapeHtml(signal.zone || "Unknown")}<br>
         Time: ${escapeHtml(formatTime(signal.timestamp))}<br>
         ${reference ? `Reference: ${escapeHtml(reference)}<br>` : ""}
@@ -2176,7 +2293,8 @@
   }
 
   function initMap() {
-    map = L.map("map", { zoomControl: true }).setView([53.8175, -3.0497], 12);
+    const centre = mapCentre();
+    map = L.map("map", { zoomControl: true }).setView([centre.lat, centre.lng], centre.zoom);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap contributors'
@@ -2217,8 +2335,11 @@
       const response = await fetch(`${API_BASE}/map-data`);
       const data = await response.json();
       const events = data.events || data.signals || [];
+      if (data.map_centre) {
+        townConfig.map_centre = { ...townConfig.map_centre, ...data.map_centre };
+      }
       mapData = {
-        zones: data.zones || [],
+        zones: (data.zones && data.zones.length) ? data.zones : configZonesAsMapZones(),
         events,
         signals: events,
         source_layers: data.source_layers || {}
@@ -2347,21 +2468,30 @@
     document.body.classList.add("dark");
   }
 
-  initMap();
-  initMapFilters();
-  setInterval(loadRuntimeStatus, 12000);
-  setInterval(loadSourceHealth, 12000);
-  setInterval(loadHistory, 12000);
-  setInterval(loadAnalytics, 18000);
-  setInterval(loadInsights, 20000);
+  async function bootDashboard() {
+    await loadTownConfig();
+    initMap();
+    initMapFilters();
+    renderMapLayers();
+    renderZoneJumpButtons();
+    updateSearchResults(document.getElementById("locationSearch").value || "");
 
-  loadRuntimeStatus();
-  loadMapData();
-  loadSourceHealth();
-  loadHistory();
-  loadAnalytics();
-  loadInsights();
-  connectWebSocket();
+    setInterval(loadRuntimeStatus, 12000);
+    setInterval(loadSourceHealth, 12000);
+    setInterval(loadHistory, 12000);
+    setInterval(loadAnalytics, 18000);
+    setInterval(loadInsights, 20000);
+
+    loadRuntimeStatus();
+    loadMapData();
+    loadSourceHealth();
+    loadHistory();
+    loadAnalytics();
+    loadInsights();
+    connectWebSocket();
+  }
+
+  bootDashboard();
   </script>
 </body>
 </html>

@@ -22,6 +22,8 @@ PostgreSQL service.
 The tests cover:
 
 - Street Manager normalisation and Blackpool geographic filtering
+- town config loading and safe `/town-config` output
+- config-driven Street Manager relevance checks
 - deduplication
 - Police.uk and Open-Meteo connector behaviour with mocked responses
 - `/source-health`, `/runtime-status`, `/history`, `/analytics`, `/map-data`

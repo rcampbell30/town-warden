@@ -10,6 +10,8 @@ except ImportError:
     BLACKPOOL_LAT = 53.8175
     BLACKPOOL_LNG = -3.0357
 
+from town_config import get_town_config
+
 
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 
@@ -77,16 +79,18 @@ def fetch_json(url):
 
 
 def build_weather_url():
+    town_config = get_town_config()
+    centre = town_config.get("map_centre", {})
     params = {
-        "latitude": BLACKPOOL_LAT,
-        "longitude": BLACKPOOL_LNG,
+        "latitude": centre.get("lat", BLACKPOOL_LAT),
+        "longitude": centre.get("lng", BLACKPOOL_LNG),
         "current": ",".join([
             "temperature_2m",
             "precipitation",
             "wind_speed_10m",
             "weather_code",
         ]),
-        "timezone": "Europe/London",
+        "timezone": town_config.get("timezone", "Europe/London"),
     }
 
     return f"{OPEN_METEO_URL}?{urlencode(params)}"
@@ -126,26 +130,31 @@ def build_events_from_weather(current):
 
     weather_hour = now().strftime("%Y%m%d%H")
     events = []
+    town_config = get_town_config()
+    zones = town_config.get("zones", [])
+    fallback_zone = zones[0]["label"] if zones else town_config.get("display_name", "Town")
+    south_zone = next((zone["label"] for zone in zones if "south" in zone["label"].lower()), fallback_zone)
+    north_zone = next((zone["label"] for zone in zones if "north" in zone["label"].lower()), fallback_zone)
 
     if precipitation > 0:
         events.append({
             "type": "weather",
-            "location": "Blackpool South",
-            "text": f"Weather signal: precipitation {precipitation}mm, temperature {temperature}°C",
+            "location": south_zone,
+            "text": f"Weather signal: precipitation {precipitation}mm, temperature {temperature}C",
             "timestamp": now().isoformat(),
             "source": "Open-Meteo",
-            "source_event_id": f"openmeteo:{weather_hour}:rain:Blackpool-South",
+            "source_event_id": f"openmeteo:{weather_hour}:rain:{south_zone.replace(' ', '-')}",
             "real_data": True,
         })
 
     if wind_speed >= 25:
         events.append({
             "type": "weather",
-            "location": "North Shore",
+            "location": north_zone,
             "text": f"Weather signal: elevated coastal wind speed {wind_speed} km/h",
             "timestamp": now().isoformat(),
             "source": "Open-Meteo",
-            "source_event_id": f"openmeteo:{weather_hour}:wind:North-Shore",
+            "source_event_id": f"openmeteo:{weather_hour}:wind:{north_zone.replace(' ', '-')}",
             "real_data": True,
         })
 
@@ -244,7 +253,7 @@ def fetch_events(update_source_health):
     cached_message = (
         f"Weather checked. Wind {current['wind_speed']} km/h, "
         f"precipitation {current['precipitation']}mm, "
-        f"temperature {current['temperature']}°C, "
+        f"temperature {current['temperature']}C, "
         f"weather code {current['weather_code']}."
     )
 

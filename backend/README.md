@@ -11,6 +11,7 @@ It handles:
 - rule-based civic agents
 - WebSocket streaming
 - history and analytics APIs
+- safe public town configuration through `/town-config`
 - protected developer/admin controls
 
 ## Run
@@ -27,6 +28,7 @@ uvicorn main:app --reload
 
 ```text
 GET  /
+GET  /town-config
 GET  /source-health
 GET  /runtime-status
 GET  /history

@@ -3,12 +3,43 @@
 Town Warden is deployed as a static Netlify frontend and a FastAPI backend on
 Render.
 
-Town Warden is an experimental civic-intelligence prototype. It must not be
-presented as official council, police, NHS, or emergency-service advice.
+It is an experimental civic-intelligence prototype. It must not be presented as
+official council, police, NHS, or emergency-service advice.
 
-## Backend on Render
+## Local Backend
 
-Use a Python web service.
+```powershell
+cd backend
+py -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+
+Backend runs at `http://127.0.0.1:8000`.
+
+## Local Frontend
+
+```powershell
+cd frontend
+py -m http.server 3000
+```
+
+Frontend runs at `http://localhost:3000`.
+
+## Tests
+
+```powershell
+cd backend
+pytest
+```
+
+The tests use temporary SQLite databases and mocked source responses. They do
+not call Police.uk, Open-Meteo, Street Manager, or production databases.
+
+## Backend On Render
+
+Create a Python web service.
 
 Recommended start command:
 
@@ -29,9 +60,10 @@ Required for production:
 ```text
 ENVIRONMENT=production
 ADMIN_TOKEN=<strong random value>
+TOWN_CONFIG=config/towns/blackpool.json
 ```
 
-Optional but recommended for production:
+Optional but recommended:
 
 ```text
 DATABASE_URL=<Render PostgreSQL internal database URL>
@@ -41,20 +73,20 @@ ALERT_RETENTION_DAYS=90
 RISK_SNAPSHOT_RETENTION_DAYS=30
 ```
 
-Street Manager pilot-area defaults:
-
-```text
-TOWN_WARDEN_AREA_NAME=Blackpool
-TOWN_WARDEN_MIN_LAT=53.73
-TOWN_WARDEN_MAX_LAT=53.90
-TOWN_WARDEN_MIN_LNG=-3.10
-TOWN_WARDEN_MAX_LNG=-2.95
-```
+`TOWN_CONFIG` can point at any checked-in town config JSON file. If it is
+missing, the backend defaults to `config/towns/blackpool.json`.
 
 Never expose `ADMIN_TOKEN`, `DATABASE_URL`, webhook secrets, or private keys in
 frontend code.
 
-## PostgreSQL
+## Render PostgreSQL
+
+Create a Render PostgreSQL database and copy its internal database URL into the
+backend service as:
+
+```text
+DATABASE_URL=<Render internal PostgreSQL URL>
+```
 
 If `DATABASE_URL` starts with `postgres://` or `postgresql://`, the backend uses
 PostgreSQL and creates the required tables/indexes at startup.
@@ -85,7 +117,7 @@ POST /dev/reset-database
 
 The public frontend must not expose admin controls or tokens.
 
-## Frontend on Netlify
+## Frontend On Netlify
 
 Deploy the `frontend/` directory as static files.
 
@@ -97,24 +129,49 @@ https://town-warden.onrender.com
 
 for the live backend, and local `127.0.0.1:8000` when served from localhost.
 
-## Verification
+No frontend build step is required.
 
-After deployment, check:
+## Manual Redeploy Notes
+
+- Render: redeploy the backend service after backend, config, or dependency
+  changes.
+- Netlify: redeploy after changes to `frontend/`.
+- If a new town config is added, ensure the file is committed and `TOWN_CONFIG`
+  points at the correct path.
+
+## Verify Deployment
+
+Check backend endpoints:
 
 ```text
-GET /source-health
+GET /town-config
 GET /runtime-status
+GET /source-health
 GET /analytics
 GET /history
 GET /map-data
 GET /insights
 ```
 
-Then load:
+`/runtime-status` should show:
 
-```text
-https://town-warden.netlify.app
+- expected environment
+- expected database backend
+- dev routes protected in production
+- active source counts
+- system health and civic risk fields
+
+`/source-health` should show Police.uk, Open-Meteo, Street Manager, and
+Simulation. Street Manager should include `filtered_out_of_area` when local
+geographic filtering is active.
+
+## Safe Force Refresh
+
+Use `/dev/force-refresh` only with the admin token in production:
+
+```bash
+curl -X POST https://your-backend.onrender.com/dev/force-refresh \
+  -H "x-admin-token: <ADMIN_TOKEN>"
 ```
 
-Confirm the dashboard still clearly separates System Health from Civic Risk and
-shows the experimental/not-official disclaimer.
+Do not store this token in frontend files or public documentation.

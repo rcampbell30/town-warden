@@ -1,29 +1,29 @@
 # Data Sources
 
-## Active
+Town Warden combines public-source signals into a local civic picture for the
+configured town.
 
-### Police.uk
+## Police.uk
 
-Used for street-level incident/crime signals near Blackpool.
+Used for public incident/crime signals near the configured map centre.
 
-Town Warden converts records into incident events and maps approximate coordinates into rough Blackpool zones.
+Police.uk coordinates are approximate/anonymised. Town Warden maps them into
+configured local zones and marks coordinates as approximate.
 
-### Open-Meteo
+## Open-Meteo
 
-Used for current weather pressure.
+Used for current weather context near the configured map centre.
 
 Town Warden emits weather events when precipitation or wind thresholds are met.
+Weather context is not a replacement for official warnings.
 
-## Pending
+## Street Manager
 
-### Street Manager
+Used for live street works webhook notifications.
 
-Planned connector for roadworks and street works.
+Street Manager records are normalised into infrastructure events, deduplicated,
+and filtered to the configured pilot area using authority keywords, relevance
+keywords, postcodes, coordinates, and the configured bounding box.
 
-The stub exists at:
-
-```text
-backend/connectors/street_manager.py
-```
-
-Once API access is available, implement request/auth logic there.
+Out-of-area Street Manager records are counted as filtered but do not enter
+history, analytics, map data, risk scoring, or agent insights.

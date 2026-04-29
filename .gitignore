@@ -8,6 +8,7 @@ __pycache__/
 .ruff_cache/
 .pip-cache/
 .pip-temp/
+.test-packages/
 .test-runtime/
 
 # Virtual environments

@@ -1,0 +1,69 @@
+{
+  "town_id": "blackpool",
+  "town_name": "Blackpool",
+  "display_name": "Blackpool",
+  "country": "UK",
+  "timezone": "Europe/London",
+  "dashboard_title": "Town Warden",
+  "dashboard_subtitle": "Blackpool Civic Intelligence Prototype",
+  "public_disclaimer": "Experimental civic intelligence prototype. Not official public authority advice. For emergencies, use official channels.",
+  "map_centre": {
+    "lat": 53.8175,
+    "lng": -3.0497,
+    "zoom": 12
+  },
+  "approximate_bounding_box": {
+    "min_lat": 53.73,
+    "max_lat": 53.9,
+    "min_lng": -3.1,
+    "max_lng": -2.95
+  },
+  "zones": [
+    {
+      "name": "Town Centre",
+      "label": "Town Centre",
+      "fallback_lat": 53.8166,
+      "fallback_lng": -3.0506,
+      "radius_m": 900,
+      "risk_weight": 1.0,
+      "keywords": ["town centre", "town center", "central blackpool", "talbot"]
+    },
+    {
+      "name": "North Shore",
+      "label": "North Shore",
+      "fallback_lat": 53.8315,
+      "fallback_lng": -3.0554,
+      "radius_m": 1100,
+      "risk_weight": 1.0,
+      "keywords": ["north shore", "north pier", "bispham", "queen's promenade", "queens promenade"]
+    },
+    {
+      "name": "South Shore",
+      "label": "South Shore",
+      "fallback_lat": 53.7928,
+      "fallback_lng": -3.0552,
+      "radius_m": 1200,
+      "risk_weight": 1.0,
+      "keywords": ["south shore", "blackpool south", "lytham road", "pleasure beach", "starr gate"]
+    }
+  ],
+  "enabled_sources": {
+    "police_uk": true,
+    "open_meteo": true,
+    "street_manager": true
+  },
+  "source_labels": {
+    "police_uk": "Police.uk",
+    "open_meteo": "Open-Meteo",
+    "street_manager": "Street Manager"
+  },
+  "local_authority_keywords": ["Blackpool", "Blackpool Council"],
+  "highway_authority_keywords": ["Blackpool", "Blackpool Council"],
+  "street_manager_relevance_keywords": ["Blackpool", "FY1", "FY2", "FY3", "FY4"],
+  "postcode_prefixes": ["FY"],
+  "boundary_file": null,
+  "footer_text": "Built as a civic-tech prototype for Blackpool. Not an official council, police, NHS, or emergency-service system.",
+  "project_links": {
+    "github": "https://github.com/rcampbell30/town-warden"
+  }
+}

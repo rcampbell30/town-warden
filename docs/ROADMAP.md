@@ -17,18 +17,18 @@
 
 1. v3 Pattern Intelligence (implemented: rule-based insights for patterns, anomalies, source quality, and deduplication signals)
 2. v4 dashboard split (implemented: Public Dashboard for shareable viewing, Developer Dashboard for diagnostics and controls)
-3. Street Manager production integration (pending external approval)
+3. Street Manager production integration (implemented: live webhook ingestion with local-area filtering)
 4. Better zone mapping with ward/boundary polygons
-5. Real map via Leaflet/OpenStreetMap
-6. PostgreSQL migration
+5. Real map via Leaflet/OpenStreetMap (implemented: map-ready signals with coordinate confidence)
+6. PostgreSQL migration (implemented with SQLite fallback)
 7. Authentication and admin-role controls for operations workflows
 8. Deployment hardening for always-on public cloud operations
 9. Tests and CI checks
-10. Multi-town connector config
+10. Multi-town connector config (implemented: `TOWN_CONFIG` town JSON files)
 
 ## Current safety posture
 
 - Agent insights are rule-based and source-limited, and should never be treated as official authority advice.
-- Street Manager webhook routes are live and awaiting external approval/notifications.
+- Street Manager webhook routes are live and filtered to the configured pilot area.
 - Open-Meteo handling includes source-health visibility for throttling/rate limits.
 - Developer routes are protected in production via `ADMIN_TOKEN`; local mode keeps developer workflow unblocked.

@@ -1,6 +1,7 @@
 import asyncio
 import hashlib
 import json
+import os
 import urllib.request
 from datetime import datetime, timedelta
 
@@ -22,10 +23,6 @@ from config import (
     RISK_SNAPSHOT_RETENTION_DAYS,
     SOURCE_REFRESH_SECONDS,
     TOWN_WARDEN_AREA_NAME,
-    TOWN_WARDEN_MAX_LAT,
-    TOWN_WARDEN_MAX_LNG,
-    TOWN_WARDEN_MIN_LAT,
-    TOWN_WARDEN_MIN_LNG,
     WEBSOCKET_TICK_SECONDS,
 )
 from connectors import open_meteo, police_uk, simulation, street_manager
@@ -40,6 +37,7 @@ from storage import (
     save_risk_snapshot,
     setup_database,
 )
+from town_config import TownConfigError, get_town_config, public_town_config
 
 
 app = FastAPI()
@@ -58,9 +56,17 @@ app.add_middleware(
 )
 
 setup_database()
+try:
+    TOWN_CONFIG_DATA = get_town_config()
+except TownConfigError as exc:
+    print(f"Town Warden config error: {exc}", flush=True)
+    raise
+
 print(
     "Town Warden startup: "
     f"environment={ENVIRONMENT}, "
+    f"town_config={TOWN_CONFIG_DATA.get('town_id')}, "
+    f"town={TOWN_CONFIG_DATA.get('display_name')}, "
     f"database_backend={database_backend()}, "
     f"dev_routes_protected={ENVIRONMENT == 'production'}, "
     f"simulation_enabled={ALLOW_SIMULATION}",
@@ -78,7 +84,23 @@ duplicate_count = 0
 last_source_fetch_time = None
 last_wait_log_bucket = None
 
-REAL_SOURCE_NAMES = ["Police.uk", "Open-Meteo", "Street Manager"]
+SOURCE_IDS = ("police_uk", "open_meteo", "street_manager")
+SOURCE_NAME_BY_ID = {
+    "police_uk": "Police.uk",
+    "open_meteo": "Open-Meteo",
+    "street_manager": "Street Manager",
+}
+SOURCE_ID_BY_NAME = {label: source_id for source_id, label in SOURCE_NAME_BY_ID.items()}
+REAL_SOURCE_NAMES = [
+    SOURCE_NAME_BY_ID[source_id]
+    for source_id in SOURCE_IDS
+    if TOWN_CONFIG_DATA["enabled_sources"].get(source_id, True)
+]
+TOWN_DISPLAY_NAME = TOWN_CONFIG_DATA.get("display_name") or TOWN_CONFIG_DATA.get("town_name") or TOWN_WARDEN_AREA_NAME
+
+
+def source_enabled(source_id):
+    return bool(TOWN_CONFIG_DATA.get("enabled_sources", {}).get(source_id, True))
 
 
 source_health = {
@@ -132,34 +154,37 @@ source_health = {
     },
 }
 
-MAP_ZONES = {
-    "town_centre": {
-        "id": "town_centre",
-        "name": "Town Centre",
-        "lat": 53.8166,
-        "lng": -3.0506,
-        "radius_m": 900,
-    },
-    "north_shore": {
-        "id": "north_shore",
-        "name": "North Shore",
-        "lat": 53.8315,
-        "lng": -3.0554,
-        "radius_m": 1100,
-    },
-    "south_shore": {
-        "id": "south_shore",
-        "name": "South Shore",
-        "lat": 53.7928,
-        "lng": -3.0552,
-        "radius_m": 1200,
-    },
-}
+for configured_source_id, configured_source_name in SOURCE_NAME_BY_ID.items():
+    if not source_enabled(configured_source_id) and configured_source_name in source_health:
+        disabled_message = "Source disabled in active town config."
+        source_health[configured_source_name].update({
+            "status": "disabled",
+            "message": disabled_message,
+            "latest_message": disabled_message,
+            "last_checked": datetime.now().isoformat(),
+        })
+
+def build_map_zones(town_config):
+    zones = {}
+    for zone in town_config.get("zones", []):
+        zones[zone["id"]] = {
+            "id": zone["id"],
+            "name": zone["label"],
+            "label": zone["label"],
+            "lat": zone["fallback_lat"],
+            "lng": zone["fallback_lng"],
+            "radius_m": zone.get("radius_m", 1000),
+            "risk_weight": zone.get("risk_weight", 1.0),
+            "keywords": zone.get("keywords", []),
+        }
+    return zones
+
+
+MAP_ZONES = build_map_zones(TOWN_CONFIG_DATA)
 
 SOURCE_LAYER_FLAGS = {
-    "police_uk": True,
-    "open_meteo": True,
-    "street_manager": True,
+    source_id: bool(TOWN_CONFIG_DATA["enabled_sources"].get(source_id, True))
+    for source_id in SOURCE_IDS
 }
 
 
@@ -413,7 +438,7 @@ def format_street_manager_text(topic, metadata):
         metadata.get("street_name"),
         metadata.get("location_description"),
         metadata.get("town_area"),
-        "Blackpool",
+        TOWN_DISPLAY_NAME,
     )
 
     detail = first_present(
@@ -540,7 +565,7 @@ def normalize_street_manager_payload(payload, topic):
         street_name,
         location_description,
         town_area,
-        "Blackpool",
+        TOWN_DISPLAY_NAME,
     )
 
     return {
@@ -559,9 +584,30 @@ def normalise_street_manager_payload(kind, payload):
     return normalize_street_manager_payload(payload, kind)
 
 
+def configured_keywords(*groups):
+    keywords = []
+    for group in groups:
+        for item in TOWN_CONFIG_DATA.get(group, []):
+            text = str(item or "").strip()
+            if text:
+                keywords.append(text.lower())
+    if not keywords:
+        keywords.append(TOWN_DISPLAY_NAME.lower())
+    return keywords
+
+
+def text_contains_configured_keyword(value, *groups):
+    text = str(value or "").lower()
+    return any(keyword in text for keyword in configured_keywords(*groups))
+
+
 def text_contains_area(value):
-    area = TOWN_WARDEN_AREA_NAME.lower()
-    return area in str(value or "").lower()
+    return text_contains_configured_keyword(
+        value,
+        "local_authority_keywords",
+        "highway_authority_keywords",
+        "street_manager_relevance_keywords",
+    )
 
 
 def coordinates_in_town_warden_bounds(coordinates):
@@ -574,10 +620,21 @@ def coordinates_in_town_warden_bounds(coordinates):
     if lat is None or lng is None:
         return False
 
-    return (
-        TOWN_WARDEN_MIN_LAT <= lat <= TOWN_WARDEN_MAX_LAT
-        and TOWN_WARDEN_MIN_LNG <= lng <= TOWN_WARDEN_MAX_LNG
-    )
+    bounds = TOWN_CONFIG_DATA["approximate_bounding_box"]
+    # Legacy TOWN_WARDEN_* bounds are kept as backwards-compatible overrides,
+    # while new town clones should prefer approximate_bounding_box in TOWN_CONFIG.
+    def env_float(name, default):
+        try:
+            return float(os.getenv(name, default))
+        except (TypeError, ValueError):
+            return float(default)
+
+    min_lat = env_float("TOWN_WARDEN_MIN_LAT", bounds["min_lat"])
+    max_lat = env_float("TOWN_WARDEN_MAX_LAT", bounds["max_lat"])
+    min_lng = env_float("TOWN_WARDEN_MIN_LNG", bounds["min_lng"])
+    max_lng = env_float("TOWN_WARDEN_MAX_LNG", bounds["max_lng"])
+
+    return min_lat <= lat <= max_lat and min_lng <= lng <= max_lng
 
 
 def postcode_indicates_project_area(value):
@@ -585,10 +642,8 @@ def postcode_indicates_project_area(value):
     if not postcode:
         return False
 
-    # FY postcodes cover the Blackpool/Fylde/Wyre pilot geography. We still
-    # prefer stronger town/authority evidence when present, but this catches
-    # payloads that provide a postcode without a clean town field.
-    return postcode.startswith("FY")
+    prefixes = [str(prefix).strip().upper().replace(" ", "") for prefix in TOWN_CONFIG_DATA.get("postcode_prefixes", [])]
+    return any(postcode.startswith(prefix) for prefix in prefixes)
 
 
 def street_manager_location_evidence(metadata):
@@ -604,9 +659,9 @@ def street_manager_location_evidence(metadata):
     }
 
 
-def is_relevant_to_blackpool_street_manager(payload, normalized_event):
+def is_relevant_to_town_street_manager(payload, normalized_event):
     """
-    Decide whether a Street Manager payload belongs in the Blackpool pilot area.
+    Decide whether a Street Manager payload belongs in the configured town area.
 
     The filter is intentionally conservative: without clear area, authority,
     postcode, or coordinate evidence, the webhook is accepted by the endpoint
@@ -646,11 +701,16 @@ def is_relevant_to_blackpool_street_manager(payload, normalized_event):
     return False, "out_of_area_or_missing_location"
 
 
+def is_relevant_to_blackpool_street_manager(payload, normalized_event):
+    # Backwards-compatible name used by existing tests and earlier integrations.
+    return is_relevant_to_town_street_manager(payload, normalized_event)
+
+
 def record_street_manager_filtered_event(event, reason):
     info = source_health["Street Manager"]
     info["status"] = "connected"
     info["message"] = (
-        f"Webhook received but filtered outside the {TOWN_WARDEN_AREA_NAME} pilot area."
+        f"Webhook received but filtered outside the {TOWN_DISPLAY_NAME} pilot area."
     )
     info["latest_message"] = info["message"]
     info["last_error"] = None
@@ -738,6 +798,20 @@ async def handle_street_manager_webhook(kind, request):
         log_agent("Street Manager Connector", message, "danger")
         raise HTTPException(status_code=400, detail="Invalid JSON payload.")
 
+    if not source_enabled("street_manager"):
+        disabled_message = "Street Manager source disabled in active town config."
+        source_health["Street Manager"].update({
+            "status": "disabled",
+            "message": disabled_message,
+            "latest_message": disabled_message,
+            "last_checked": datetime.now().isoformat(),
+        })
+        return {
+            "status": "disabled",
+            "kind": kind,
+            "saved": False,
+        }
+
     if payload.get("Type") == "SubscriptionConfirmation":
         subscribe_url = payload.get("SubscribeURL")
         topic = payload.get("TopicArn") or kind
@@ -767,7 +841,7 @@ async def handle_street_manager_webhook(kind, request):
         }
 
     event = normalise_street_manager_payload(kind, payload)
-    relevant, relevance_reason = is_relevant_to_blackpool_street_manager(payload, event)
+    relevant, relevance_reason = is_relevant_to_town_street_manager(payload, event)
 
     if not relevant:
         return record_street_manager_filtered_event(event, relevance_reason)
@@ -794,9 +868,12 @@ def fetch_real_events():
 
     fetched_events = []
 
-    fetched_events += police_uk.fetch_events(update_source_health)
-    fetched_events += open_meteo.fetch_events(update_source_health)
-    fetched_events += street_manager.fetch_events(update_source_health)
+    if source_enabled("police_uk"):
+        fetched_events += police_uk.fetch_events(update_source_health)
+    if source_enabled("open_meteo"):
+        fetched_events += open_meteo.fetch_events(update_source_health)
+    if source_enabled("street_manager"):
+        fetched_events += street_manager.fetch_events(update_source_health)
 
     new_events = []
     seen_ids_this_cycle = set()
@@ -833,7 +910,7 @@ def fetch_real_events():
             "warning",
         )
 
-    for source_name in ["Police.uk", "Open-Meteo", "Street Manager"]:
+    for source_name in REAL_SOURCE_NAMES:
         source_new = len([event for event in new_events if event.get("source") == source_name])
 
         if source_name in source_health:
@@ -1124,6 +1201,9 @@ def runtime_status():
         "agent_log_count": len(agent_log),
         "insight_count": len(insights),
         "environment": ENVIRONMENT,
+        "town_id": TOWN_CONFIG_DATA.get("town_id"),
+        "town_name": TOWN_CONFIG_DATA.get("town_name"),
+        "display_name": TOWN_DISPLAY_NAME,
         "database_backend": database_backend(),
         "dev_routes_protected": ENVIRONMENT == "production",
         "public_dev_routes_protected": ENVIRONMENT == "production",
@@ -1150,14 +1230,19 @@ def map_risk_level(score):
 def infer_zone_from_location(location_text):
     text = str(location_text or "").lower()
 
-    if "north" in text:
-        return MAP_ZONES["north_shore"]
-    if "south" in text:
-        return MAP_ZONES["south_shore"]
-    if "centre" in text or "center" in text or "town" in text:
-        return MAP_ZONES["town_centre"]
+    for zone in MAP_ZONES.values():
+        names = [zone.get("name"), zone.get("label"), *(zone.get("keywords") or [])]
+        if any(str(item or "").lower() in text for item in names if item):
+            return zone
 
-    return MAP_ZONES["town_centre"]
+    if "north" in text:
+        return next((zone for zone in MAP_ZONES.values() if "north" in zone["name"].lower()), next(iter(MAP_ZONES.values())))
+    if "south" in text:
+        return next((zone for zone in MAP_ZONES.values() if "south" in zone["name"].lower()), next(iter(MAP_ZONES.values())))
+    if "centre" in text or "center" in text or "town" in text:
+        return next((zone for zone in MAP_ZONES.values() if "centre" in zone["name"].lower() or "center" in zone["name"].lower()), next(iter(MAP_ZONES.values())))
+
+    return next(iter(MAP_ZONES.values()))
 
 
 def zone_summary(name, risk_level):
@@ -1282,7 +1367,7 @@ def home():
         "message": "Town Warden backend is running",
         "status": "live",
         "mode": "real-data-only civic intelligence system",
-        "sources": ["Police.uk", "Open-Meteo", "Street Manager"],
+        "sources": REAL_SOURCE_NAMES,
         **runtime_status(),
     }
 
@@ -1299,6 +1384,11 @@ def get_source_health():
 @app.get("/runtime-status")
 def get_runtime_status():
     return runtime_status()
+
+
+@app.get("/town-config")
+def get_public_town_config():
+    return public_town_config(TOWN_CONFIG_DATA)
 
 
 @app.get("/map-data")
@@ -1348,7 +1438,7 @@ def get_map_data():
         confidence_note = {
             "exact": "Coordinates came from the source payload.",
             "approximate": "Coordinates are approximate because the source only publishes approximate positions.",
-            "zone_fallback": "Coordinates use the mapped Blackpool zone centre because the source did not include coordinates.",
+            "zone_fallback": f"Coordinates use the mapped {TOWN_DISPLAY_NAME} zone centre because the source did not include coordinates.",
         }.get(coordinate_confidence, "Coordinate confidence is unknown.")
 
         events.append({
@@ -1385,11 +1475,13 @@ def get_map_data():
         zones.append({
             "id": zone["id"],
             "name": zone_name,
+            "label": zone.get("label", zone_name),
             "risk_score": score,
             "risk_level": risk_level,
             "lat": zone["lat"],
             "lng": zone["lng"],
             "radius_m": zone["radius_m"],
+            "risk_weight": zone.get("risk_weight", 1.0),
             "latest_signal_count": recent_zone_signals[zone_name] or zone_signal_counts[zone_name],
             "dominant_source": dominant_source,
             "source_coverage_note": "Patterns may reflect source coverage because available public feeds are uneven.",
@@ -1399,6 +1491,10 @@ def get_map_data():
 
     return {
         "generated_at": datetime.now().isoformat(),
+        "town_id": TOWN_CONFIG_DATA.get("town_id"),
+        "display_name": TOWN_DISPLAY_NAME,
+        "map_centre": TOWN_CONFIG_DATA.get("map_centre"),
+        "approximate_bounding_box": TOWN_CONFIG_DATA.get("approximate_bounding_box"),
         "zones": zones,
         "events": events,
         "signals": events,

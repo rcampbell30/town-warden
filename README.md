@@ -1,14 +1,18 @@
 # Town Warden
 
-Town Warden is an experimental civic-intelligence prototype for Blackpool. It
-combines public-source signals from Police.uk, Open-Meteo, and Street Manager
-webhooks, then presents source health, civic risk, map signals, history,
-analytics, and rule-based agent insights.
+Town Warden is an experimental civic-intelligence dashboard that combines public
+data sources into a local civic picture. The default example is Blackpool, but
+the project is designed to be adapted to other UK towns through configuration.
 
 It is a civic-tech prototype and portfolio project. It is not an official
 council, police, NHS, or emergency-service system.
 
-## Stack
+## Live Demo
+
+- Backend: https://town-warden.onrender.com
+- Frontend: https://town-warden.netlify.app
+
+## Architecture
 
 - Backend: Python FastAPI
 - Frontend: static HTML/CSS/JavaScript
@@ -17,16 +21,36 @@ council, police, NHS, or emergency-service system.
 - Frontend hosting: Netlify
 - Backend hosting: Render
 
-## Current Sources
+## Data Sources
 
 - Police.uk: public incident intelligence
 - Open-Meteo: weather context
-- Street Manager: live street works webhooks filtered to the Blackpool pilot area
+- Street Manager: live street works webhooks, filtered to the configured town area
+
+## Main Features
+
+- Source health and runtime status
+- Civic risk and system health scoring
+- Event history and analytics
+- Map-ready civic signals with coordinate confidence
+- Street Manager payload mapping, deduplication, and local-area filtering
+- Source-aware agent insights
+- Protected developer/admin routes
+- Config-driven town settings through `TOWN_CONFIG`
+
+## Screenshots
+
+Add current dashboard screenshots here when preparing a public portfolio page:
+
+- Public dashboard desktop
+- Public dashboard mobile
+- Developer diagnostics dashboard
 
 ## Key Endpoints
 
 ```text
 GET  /
+GET  /town-config
 GET  /source-health
 GET  /runtime-status
 GET  /history
@@ -88,6 +112,7 @@ call Police.uk, Open-Meteo, Street Manager, or production databases.
 ## Environment Variables
 
 - `ENVIRONMENT=local|production|test`
+- `TOWN_CONFIG`: path to a town config JSON file. Defaults to `config/towns/blackpool.json`
 - `ADMIN_TOKEN`: required to operate protected `/dev/*` routes in production
 - `DATABASE_URL`: optional PostgreSQL URL. If missing, SQLite is used.
 - `SOURCE_REFRESH_SECONDS`: source polling interval
@@ -95,11 +120,25 @@ call Police.uk, Open-Meteo, Street Manager, or production databases.
 - `EVENT_RETENTION_DAYS`: default `90`
 - `ALERT_RETENTION_DAYS`: default `90`
 - `RISK_SNAPSHOT_RETENTION_DAYS`: default `30`
-- `TOWN_WARDEN_AREA_NAME`: default `Blackpool`
-- `TOWN_WARDEN_MIN_LAT`, `TOWN_WARDEN_MAX_LAT`, `TOWN_WARDEN_MIN_LNG`, `TOWN_WARDEN_MAX_LNG`: approximate pilot-area bounds
 
 Do not put `ADMIN_TOKEN`, `DATABASE_URL`, webhook secrets, or private keys in
 frontend files.
+
+## Adapting For Another Town
+
+Town-specific settings live in `config/towns/`. To create a new town dashboard,
+copy `config/towns/blackpool.json`, rename it, and edit the town name, map
+centre, zones, bounding box, local authority keywords, source labels, and
+footer/disclaimer text.
+
+Set:
+
+```text
+TOWN_CONFIG=config/towns/your-town.json
+```
+
+See [docs/ADAPT_FOR_YOUR_TOWN.md](docs/ADAPT_FOR_YOUR_TOWN.md) for the full
+clone/adapt workflow.
 
 ## Deployment
 
@@ -108,9 +147,9 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 ## Limitations
 
 - Police.uk locations are approximate/anonymised.
-- Street Manager is filtered to the Blackpool pilot area using available area
-  fields, postcodes, and an approximate bounding box.
-- Current Blackpool risk zones are coarse and not official GIS boundaries.
+- Street Manager relevance depends on available area fields, postcodes,
+  authority names, coordinates, and the configured bounding box.
+- Current zones are coarse unless you add stronger local mapping data.
 - Agent insights are rule-based, source-limited, and experimental.
 - The public dashboard must remain clearly labelled as not official authority
   advice.
