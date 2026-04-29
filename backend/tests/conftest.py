@@ -117,6 +117,21 @@ def london_payload():
 
 
 @pytest.fixture
+def crawley_payload():
+    return {
+        "permitReferenceNumber": "CRW-0001",
+        "streetName": "The Boulevard",
+        "town": "Crawley",
+        "county": "West Sussex",
+        "highwayAuthorityName": "West Sussex County Council",
+        "coordinates": {
+            "latitude": 51.1091,
+            "longitude": -0.1872,
+        },
+    }
+
+
+@pytest.fixture
 def shropshire_payload():
     return {
         "permitReferenceNumber": "SHR-0001",
@@ -128,6 +143,36 @@ def shropshire_payload():
         "coordinates": {
             "latitude": 52.7073,
             "longitude": -2.7553,
+        },
+    }
+
+
+@pytest.fixture
+def surrey_payload():
+    return {
+        "permitReferenceNumber": "SRY-0001",
+        "streetName": "High Street",
+        "town": "Guildford",
+        "county": "Surrey",
+        "highwayAuthorityName": "Surrey County Council",
+        "coordinates": {
+            "latitude": 51.2362,
+            "longitude": -0.5704,
+        },
+    }
+
+
+@pytest.fixture
+def hampshire_payload():
+    return {
+        "permitReferenceNumber": "HAM-0001",
+        "streetName": "Commercial Road",
+        "town": "Southampton",
+        "county": "Hampshire",
+        "highwayAuthorityName": "Hampshire County Council",
+        "coordinates": {
+            "latitude": 50.9097,
+            "longitude": -1.4044,
         },
     }
 

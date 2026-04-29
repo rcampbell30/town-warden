@@ -9,9 +9,13 @@ def test_dev_routes_reject_missing_or_wrong_token_in_production(client, monkeypa
 
     missing = client.post("/dev/reset-database")
     wrong = client.post("/dev/reset-database", headers={"x-admin-token": "wrong"})
+    force_missing = client.post("/dev/force-refresh")
+    force_wrong = client.post("/dev/force-refresh", headers={"x-admin-token": "wrong"})
 
     assert missing.status_code == 403
     assert wrong.status_code == 403
+    assert force_missing.status_code == 403
+    assert force_wrong.status_code == 403
 
 
 def test_dev_routes_accept_valid_token_in_production(client, monkeypatch):

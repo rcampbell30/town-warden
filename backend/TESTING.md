@@ -4,6 +4,7 @@ Run the backend test suite from the backend folder:
 
 ```bash
 cd backend
+pip install -r requirements.txt
 pytest
 ```
 

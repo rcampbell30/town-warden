@@ -47,6 +47,21 @@ def test_shropshire_payload_is_filtered(client, shropshire_payload):
     assert client.get("/map-data").json()["events"] == []
 
 
+def test_more_national_payloads_are_filtered(client, crawley_payload, surrey_payload, hampshire_payload):
+    for payload in [crawley_payload, surrey_payload, hampshire_payload]:
+        response = client.post("/webhooks/street-manager/permits", json=payload)
+        assert response.status_code == 200
+        assert response.json()["status"] == "filtered_out"
+
+    assert client.get("/history").json() == []
+    analytics = client.get("/analytics").json()
+    assert analytics["total_events"] == 0
+    assert client.get("/map-data").json()["events"] == []
+
+    health = client.get("/source-health").json()["sources"]["Street Manager"]
+    assert health["filtered_out_of_area"] == 3
+
+
 def test_no_location_payload_is_filtered(client, no_location_payload):
     response = client.post("/webhooks/street-manager/permits", json=no_location_payload)
 

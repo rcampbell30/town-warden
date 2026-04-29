@@ -5,6 +5,30 @@ def test_source_health_includes_expected_sources(client):
     assert {"Police.uk", "Open-Meteo", "Street Manager", "Simulation"}.issubset(sources)
     assert sources["Simulation"]["status"] == "disabled"
     assert "filtered_out_of_area" in sources["Street Manager"]
+    assert "system_health_score" in payload
+    assert "civic_risk_score" in payload
+
+
+def test_active_sources_count_when_real_sources_connected(client):
+    for path, payload in [
+        ("/webhooks/street-manager/permits", {
+            "permitReferenceNumber": "BC001-SH-1",
+            "streetName": "Promenade",
+            "town": "Blackpool",
+        }),
+    ]:
+        client.post(path, json=payload)
+
+    import main
+
+    main.source_health["Police.uk"]["status"] = "connected"
+    main.source_health["Police.uk"]["records_returned"] = 1
+    main.source_health["Open-Meteo"]["status"] = "connected"
+    main.source_health["Open-Meteo"]["records_returned"] = 1
+
+    payload = client.get("/source-health").json()
+    assert payload["active_sources_count"] == 3
+    assert payload["total_sources_count"] == 3
 
 
 def test_street_manager_connected_after_webhook(client, permit_payload):
