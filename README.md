@@ -145,6 +145,21 @@ TOWN_CONFIG=config/towns/your-town.json
 See [docs/ADAPT_FOR_YOUR_TOWN.md](docs/ADAPT_FOR_YOUR_TOWN.md) for the full
 clone/adapt workflow.
 
+## Future: Town Warden Network
+
+Town Warden is local-first today. Each town can run its own independent
+dashboard, sources, database, agents, and config without depending on any wider
+network.
+
+Future versions may support federation between trusted Town Warden nodes using
+public-safe summaries and shared schemas. The goal would be cross-town pattern
+awareness, not centralised surveillance or raw data sharing.
+
+Federation is not implemented in v1.0.
+
+- [Federation roadmap](docs/FEDERATION_ROADMAP.md)
+- [Federation public summary schema](docs/FEDERATION_SCHEMA.md)
+
 ## Deployment
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).

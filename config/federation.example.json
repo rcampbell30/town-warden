@@ -1,0 +1,11 @@
+{
+  "federation_enabled": false,
+  "node_id": "blackpool",
+  "node_name": "Town Warden Blackpool",
+  "public_base_url": "https://example-town-warden.netlify.app",
+  "summary_endpoint": "/federation/public-summary",
+  "share_raw_events": false,
+  "share_public_summaries": true,
+  "trusted_peers": [],
+  "notes": "Example only. Do not put secrets in this file."
+}
