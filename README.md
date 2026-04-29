@@ -1,4 +1,4 @@
-# Town Warden
+# Town Warden — Cloneable Civic-Intelligence Template for UK Towns
 
 Town Warden is an experimental civic-intelligence dashboard that combines public
 data sources into a local civic picture. The default example is Blackpool, but
@@ -9,8 +9,8 @@ council, police, NHS, or emergency-service system.
 
 ## Live Demo
 
-- Backend: https://town-warden.onrender.com
-- Frontend: https://town-warden.netlify.app
+- Backend: [https://town-warden.onrender.com](https://town-warden.onrender.com)
+- Frontend: [https://town-warden.netlify.app](https://town-warden.netlify.app)
 
 ## Architecture
 
@@ -40,11 +40,16 @@ council, police, NHS, or emergency-service system.
 
 ## Screenshots
 
-Add current dashboard screenshots here when preparing a public portfolio page:
+Screenshots should be captured from the live public dashboard:
+[https://town-warden.netlify.app](https://town-warden.netlify.app)
 
-- Public dashboard desktop
-- Public dashboard mobile
-- Developer diagnostics dashboard
+Real screenshots are not committed yet. Use these placeholders when adding
+portfolio images:
+
+- Public dashboard: [docs/screenshots/public-dashboard.png](docs/screenshots/public-dashboard.png)
+- Live sources: [docs/screenshots/live-sources.png](docs/screenshots/live-sources.png)
+- Map view: [docs/screenshots/map-view.png](docs/screenshots/map-view.png)
+- Agent insights: [docs/screenshots/agent-insights.png](docs/screenshots/agent-insights.png)
 
 ## Key Endpoints
 
@@ -143,6 +148,10 @@ clone/adapt workflow.
 ## Deployment
 
 See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+## Release Notes
+
+- [Town Warden v1.0 — Cloneable Civic Intelligence Template](docs/releases/v1.0-town-template.md)
 
 ## Limitations
 

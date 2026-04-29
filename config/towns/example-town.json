@@ -8,8 +8,8 @@
   "dashboard_subtitle": "Example Town Civic Intelligence Prototype",
   "public_disclaimer": "Experimental civic intelligence prototype. Not official public authority advice. For emergencies, use official channels.",
   "map_centre": {
-    "lat": 53.0,
-    "lng": -2.0,
+    "lat": 53,
+    "lng": -2,
     "zoom": 12
   },
   "approximate_bounding_box": {
@@ -22,29 +22,36 @@
     {
       "name": "Town Centre",
       "label": "Town Centre",
-      "fallback_lat": 53.0,
-      "fallback_lng": -2.0,
+      "fallback_lat": 53,
+      "fallback_lng": -2,
       "radius_m": 900,
-      "risk_weight": 1.0,
-      "keywords": ["town centre", "town center"]
+      "risk_weight": 1,
+      "keywords": [
+        "town centre",
+        "town center"
+      ]
     },
     {
       "name": "North",
       "label": "North",
       "fallback_lat": 53.015,
-      "fallback_lng": -2.0,
+      "fallback_lng": -2,
       "radius_m": 1000,
-      "risk_weight": 1.0,
-      "keywords": ["north"]
+      "risk_weight": 1,
+      "keywords": [
+        "north"
+      ]
     },
     {
       "name": "South",
       "label": "South",
       "fallback_lat": 52.985,
-      "fallback_lng": -2.0,
+      "fallback_lng": -2,
       "radius_m": 1000,
-      "risk_weight": 1.0,
-      "keywords": ["south"]
+      "risk_weight": 1,
+      "keywords": [
+        "south"
+      ]
     }
   ],
   "enabled_sources": {
@@ -57,9 +64,15 @@
     "open_meteo": "Open-Meteo",
     "street_manager": "Street Manager"
   },
-  "local_authority_keywords": ["Example Town"],
-  "highway_authority_keywords": ["Example Town"],
-  "street_manager_relevance_keywords": ["Example Town"],
+  "local_authority_keywords": [
+    "Example Town"
+  ],
+  "highway_authority_keywords": [
+    "Example Town"
+  ],
+  "street_manager_relevance_keywords": [
+    "Example Town"
+  ],
   "postcode_prefixes": [],
   "boundary_file": null,
   "footer_text": "Built as a civic-tech prototype for Example Town. Not an official public authority system.",

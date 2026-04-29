@@ -25,8 +25,13 @@
       "fallback_lat": 53.8166,
       "fallback_lng": -3.0506,
       "radius_m": 900,
-      "risk_weight": 1.0,
-      "keywords": ["town centre", "town center", "central blackpool", "talbot"]
+      "risk_weight": 1,
+      "keywords": [
+        "town centre",
+        "town center",
+        "central blackpool",
+        "talbot"
+      ]
     },
     {
       "name": "North Shore",
@@ -34,8 +39,14 @@
       "fallback_lat": 53.8315,
       "fallback_lng": -3.0554,
       "radius_m": 1100,
-      "risk_weight": 1.0,
-      "keywords": ["north shore", "north pier", "bispham", "queen's promenade", "queens promenade"]
+      "risk_weight": 1,
+      "keywords": [
+        "north shore",
+        "north pier",
+        "bispham",
+        "queen's promenade",
+        "queens promenade"
+      ]
     },
     {
       "name": "South Shore",
@@ -43,8 +54,14 @@
       "fallback_lat": 53.7928,
       "fallback_lng": -3.0552,
       "radius_m": 1200,
-      "risk_weight": 1.0,
-      "keywords": ["south shore", "blackpool south", "lytham road", "pleasure beach", "starr gate"]
+      "risk_weight": 1,
+      "keywords": [
+        "south shore",
+        "blackpool south",
+        "lytham road",
+        "pleasure beach",
+        "starr gate"
+      ]
     }
   ],
   "enabled_sources": {
@@ -57,10 +74,24 @@
     "open_meteo": "Open-Meteo",
     "street_manager": "Street Manager"
   },
-  "local_authority_keywords": ["Blackpool", "Blackpool Council"],
-  "highway_authority_keywords": ["Blackpool", "Blackpool Council"],
-  "street_manager_relevance_keywords": ["Blackpool", "FY1", "FY2", "FY3", "FY4"],
-  "postcode_prefixes": ["FY"],
+  "local_authority_keywords": [
+    "Blackpool",
+    "Blackpool Council"
+  ],
+  "highway_authority_keywords": [
+    "Blackpool",
+    "Blackpool Council"
+  ],
+  "street_manager_relevance_keywords": [
+    "Blackpool",
+    "FY1",
+    "FY2",
+    "FY3",
+    "FY4"
+  ],
+  "postcode_prefixes": [
+    "FY"
+  ],
   "boundary_file": null,
   "footer_text": "Built as a civic-tech prototype for Blackpool. Not an official council, police, NHS, or emergency-service system.",
   "project_links": {
