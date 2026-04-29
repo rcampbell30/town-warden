@@ -1363,12 +1363,25 @@ def map_event_reference(metadata):
 
 @app.get("/")
 def home():
+    status = runtime_status()
+
     return {
         "message": "Town Warden backend is running",
-        "status": "live",
+        "status": "running",
         "mode": "real-data-only civic intelligence system",
+        "environment": status["environment"],
+        "database_backend": status["database_backend"],
+        "simulation_enabled": status["simulation_enabled"],
+        "dev_routes_protected": status["dev_routes_protected"],
+        "active_sources_count": status["active_sources_count"],
+        "total_sources_count": status["total_sources_count"],
         "sources": REAL_SOURCE_NAMES,
-        **runtime_status(),
+        "active_sources": status["source_status_summary"]["active"],
+        "source_status_summary": status["source_status_summary"],
+        "system_health_score": status["system_health_score"],
+        "system_health_label": status["system_health_label"],
+        "civic_risk_score": status["civic_risk_score"],
+        "civic_risk_label": status["civic_risk_label"],
     }
 
 
