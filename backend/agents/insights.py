@@ -24,16 +24,28 @@ def _source_context(source_health):
     grouped = {
         "connected": [],
         "pending": [],
+        "checking": [],
         "rate_limited": [],
         "disconnected": [],
+        "error": [],
         "disabled": [],
     }
 
     for source_name, data in (source_health or {}).items():
         status = str(data.get("status", "unknown")).lower()
 
-        if status in grouped:
-            grouped[status].append(source_name)
+        if status in {"connected", "healthy", "ok", "live", "enabled"}:
+            grouped["connected"].append(source_name)
+        elif status in {"pending", "checking"}:
+            grouped["pending"].append(source_name)
+            grouped["checking"].append(source_name)
+        elif status in {"rate_limited"}:
+            grouped["rate_limited"].append(source_name)
+        elif status in {"disabled"}:
+            grouped["disabled"].append(source_name)
+        elif status in {"error", "failed", "offline", "unavailable", "disconnected"}:
+            grouped["error"].append(source_name)
+            grouped["disconnected"].append(source_name)
 
     return grouped
 
@@ -48,21 +60,59 @@ def _dominant_source(events):
     return source_counts.most_common(1)[0]
 
 
+def _event_source_counts(events):
+    return Counter(event.get("source", "Unknown") for event in (events or []))
+
+
+def _source_contribution_notes(source_groups, source_counts):
+    notes = []
+
+    if "Street Manager" in source_groups["connected"] and source_counts.get("Street Manager", 0) == 0:
+        notes.append(
+            "Street Manager is connected but has not contributed recent Blackpool-relevant events in this analysis window."
+        )
+
+    if "Open-Meteo" in source_groups["connected"] and source_counts.get("Open-Meteo", 0) == 0:
+        notes.append("Open-Meteo is connected as weather context.")
+
+    return notes
+
+
+def _build_source_note(events, source_groups, dominant_source, dominant_ratio):
+    total_events = len(events or [])
+    source_counts = _event_source_counts(events)
+    notes = []
+
+    if total_events > 0:
+        notes.append(
+            f"Dominant source is {dominant_source} ({round(dominant_ratio * 100)}% of recent events)."
+        )
+    else:
+        notes.append("No recent events available yet.")
+
+    notes.extend(_source_contribution_notes(source_groups, source_counts))
+
+    if source_groups["pending"]:
+        notes.append(f"Pending/checking sources: {', '.join(source_groups['pending'])}.")
+
+    if source_groups["error"]:
+        notes.append(f"Sources with errors: {', '.join(source_groups['error'])}.")
+
+    if source_groups["rate_limited"]:
+        notes.append(f"Rate-limited sources: {', '.join(source_groups['rate_limited'])}.")
+
+    return " ".join(notes)
+
+
 def generate_insights(events, risk_map, source_health, duplicate_count):
     insights = []
     total_events = len(events or [])
     dominant_source, dominant_count = _dominant_source(events)
     dominant_ratio = _safe_ratio(dominant_count, total_events)
     source_groups = _source_context(source_health)
-
-    source_note = (
-        f"Dominant source is {dominant_source} ({round(dominant_ratio * 100)}% of recent events)."
-        if total_events > 0
-        else "No recent events available yet."
-    )
-
-    if source_groups["pending"]:
-        source_note += f" Pending sources: {', '.join(source_groups['pending'])}."
+    source_counts = _event_source_counts(events)
+    contribution_notes = _source_contribution_notes(source_groups, source_counts)
+    source_note = _build_source_note(events, source_groups, dominant_source, dominant_ratio)
 
     if total_events >= 8:
         location_counts = Counter(event.get("location", "Unknown") for event in events)
@@ -147,11 +197,12 @@ def generate_insights(events, risk_map, source_health, duplicate_count):
     if source_health:
         pending = ", ".join(source_groups["pending"]) or "none"
         rate_limited = ", ".join(source_groups["rate_limited"]) or "none"
-        disconnected = ", ".join(source_groups["disconnected"]) or "none"
+        errors = ", ".join(source_groups["error"]) or "none"
         connected = ", ".join(source_groups["connected"]) or "none"
+        quiet_connected = " ".join(contribution_notes) or "none"
         simulation_status = source_health.get("Simulation", {}).get("status", "unknown")
 
-        if source_groups["pending"] or source_groups["rate_limited"] or source_groups["disconnected"]:
+        if source_groups["pending"] or source_groups["rate_limited"] or source_groups["error"]:
             insights.append({
                 "agent": "Data Quality Warden",
                 "title": "Source coverage limits confidence",
@@ -165,9 +216,10 @@ def generate_insights(events, risk_map, source_health, duplicate_count):
                 "severity": "warning",
                 "evidence": [
                     f"Connected sources: {connected}",
-                    f"Pending sources: {pending}",
+                    f"Pending/checking sources: {pending}",
                     f"Rate-limited sources: {rate_limited}",
-                    f"Disconnected sources: {disconnected}",
+                    f"Sources with errors: {errors}",
+                    f"Connected sources without recent contribution: {quiet_connected}",
                     f"Simulation status: {simulation_status}",
                 ],
                 "source_context": source_note,

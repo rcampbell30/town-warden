@@ -1749,6 +1749,14 @@
     let text = String(value || "");
     if (streetManagerIsLive()) {
       text = text.replace(/awaiting external approval|pending notifications|webhook endpoints ready/gi, "live street works notifications");
+      text = text.replace(
+        /Pending sources:\s*Street Manager\.?/gi,
+        "Street Manager is connected but has not contributed recent Blackpool-relevant events in this analysis window."
+      );
+      text = text.replace(
+        /Pending\/checking sources:\s*Street Manager\.?/gi,
+        "Street Manager is connected but has not contributed recent Blackpool-relevant events in this analysis window."
+      );
     }
     return text.trim();
   }
