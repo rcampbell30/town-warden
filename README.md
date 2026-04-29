@@ -1,84 +1,59 @@
 # Town Warden
 
-Town Warden is a local civic-intelligence prototype for Blackpool.
+Town Warden is an experimental civic-intelligence prototype for Blackpool. It
+combines public-source signals from Police.uk, Open-Meteo, and Street Manager
+webhooks, then presents source health, civic risk, map signals, history,
+analytics, and rule-based agent insights.
 
-It ingests public data, normalises it into civic events, deduplicates repeated source records, stores events in SQLite, runs rule-based agents, and displays live signals in a browser dashboard.
+It is a civic-tech prototype and portfolio project. It is not an official
+council, police, NHS, or emergency-service system.
 
-## Current demo status
+## Stack
 
-This version is **demo-ready**, not production-ready.
+- Backend: Python FastAPI
+- Frontend: static HTML/CSS/JavaScript
+- Local/default database: SQLite
+- Production database option: PostgreSQL via `DATABASE_URL`
+- Frontend hosting: Netlify
+- Backend hosting: Render
 
-It is suitable for:
+## Current Sources
 
-- local demonstrations
-- GitHub publishing
-- portfolio/interview evidence
-- explaining the architecture
-- extending with more connectors
+- Police.uk: public incident intelligence
+- Open-Meteo: weather context
+- Street Manager: live street works webhooks filtered to the Blackpool pilot area
 
-It is not yet suitable for unsupervised public production use.
-
-## Current features
-
-- FastAPI backend
-- WebSocket live event stream
-- SQLite persistence
-- Real-data-only mode
-- v4 split dashboard modes (Public Dashboard and Developer Dashboard)
-- Police.uk connector
-- Open-Meteo connector
-- Street Manager connector stub
-- Source health panel
-- Deduplication guard
-- Next source refresh countdown
-- History endpoint and UI
-- Analytics endpoint and UI
-- v3 Pattern Intelligence insight stream
-- Developer controls for local testing
-- Modular connector/agent structure
-- Street Manager webhook endpoints ready (awaiting external approval/notifications)
-
-## Pattern Intelligence
-
-Town Warden v3 adds **rule-based Pattern Intelligence** so agents can generate developer-facing insights about:
-
-- repeating location and event-type concentrations
-- emerging risk patterns before critical thresholds
-- data quality concerns from source health
-- deduplication pressure from repeated source records
-
-These insights are intended for engineering and operations interpretation only. They are early indicators and **not official public authority advice or conclusions**.
-They are also source-limited and should be read with source health context.
-
-## Folder structure
+## Key Endpoints
 
 ```text
-town-warden/
-├── backend/
-│   ├── main.py
-│   ├── config.py
-│   ├── storage.py
-│   ├── requirements.txt
-│   ├── connectors/
-│   ├── agents/
-│   ├── services/
-│   └── README.md
-├── frontend/
-│   ├── index.html
-│   └── README.md
-├── docs/
-├── scripts/
-├── .env.example
-├── .gitignore
-├── LICENSE
-└── README.md
+GET  /
+GET  /source-health
+GET  /runtime-status
+GET  /history
+GET  /analytics
+GET  /map-data
+GET  /agent-log
+GET  /insights
+WS   /ws
+POST /webhooks/street-manager/permits
+POST /webhooks/street-manager/activities
+POST /webhooks/street-manager/section-58
 ```
 
-## Quick start on Windows
+Protected development/admin routes:
 
-Open PowerShell in this folder.
+```text
+POST /dev/force-refresh
+POST /dev/clear-live-feed
+POST /dev/clear-risk-map
+POST /dev/cleanup-retention
+POST /dev/reset-database
+```
 
-### Backend
+In production, `/dev/*` routes require an `x-admin-token` header matching
+`ADMIN_TOKEN`.
+
+## Local Backend
 
 ```powershell
 cd backend
@@ -88,69 +63,54 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-Backend runs at:
+Backend runs at `http://127.0.0.1:8000`.
 
-```text
-http://127.0.0.1:8000
-```
-
-### Frontend
-
-Open a second PowerShell window.
+## Local Frontend
 
 ```powershell
 cd frontend
 py -m http.server 3000
 ```
 
-Frontend runs at:
+Frontend runs at `http://localhost:3000`.
 
-```text
-http://localhost:3000
+## Tests
+
+```powershell
+cd backend
+pip install -r requirements.txt
+pytest
 ```
 
-## Useful backend URLs
+Tests use temporary SQLite databases and mocked source responses. They do not
+call Police.uk, Open-Meteo, Street Manager, or production databases.
 
-```text
-http://127.0.0.1:8000/
-http://127.0.0.1:8000/source-health
-http://127.0.0.1:8000/history
-http://127.0.0.1:8000/analytics
-```
+## Environment Variables
 
-## Demo script
+- `ENVIRONMENT=local|production|test`
+- `ADMIN_TOKEN`: required to operate protected `/dev/*` routes in production
+- `DATABASE_URL`: optional PostgreSQL URL. If missing, SQLite is used.
+- `SOURCE_REFRESH_SECONDS`: source polling interval
+- `ALLOW_SIMULATION`: defaults to disabled
+- `EVENT_RETENTION_DAYS`: default `90`
+- `ALERT_RETENTION_DAYS`: default `90`
+- `RISK_SNAPSHOT_RETENTION_DAYS`: default `30`
+- `TOWN_WARDEN_AREA_NAME`: default `Blackpool`
+- `TOWN_WARDEN_MIN_LAT`, `TOWN_WARDEN_MAX_LAT`, `TOWN_WARDEN_MIN_LNG`, `TOWN_WARDEN_MAX_LNG`: approximate pilot-area bounds
 
-See:
+Do not put `ADMIN_TOKEN`, `DATABASE_URL`, webhook secrets, or private keys in
+frontend files.
 
-```text
-docs/DEMO_SCRIPT.md
-```
+## Deployment
 
-## Production plan
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-See:
-
-```text
-docs/PRODUCTION_PLAN.md
-```
-
-## Important limitations
+## Limitations
 
 - Police.uk locations are approximate/anonymised.
-- Current Blackpool zone mapping is rough coordinate mapping, not GIS boundary mapping.
-- SQLite is for local development.
-- Agent Insights are rule-based, source-limited, and experimental.
-- Developer routes are protected in production (`ENVIRONMENT=production` requires `x-admin-token` matching `ADMIN_TOKEN`).
-- Street Manager webhook routes are implemented but waiting for external approval and live payload notifications.
-- Open-Meteo is handled with rate-limit-aware source health messaging.
-
-## Production safety notes
-
-- Set `ENVIRONMENT=production` on Render.
-- Set `ADMIN_TOKEN` to protect `/dev/*` routes with `x-admin-token`.
-- Never expose admin tokens in frontend code.
-- Keep the Public Dashboard language cautious: processed signals and source-limited insights are experimental rule-based analysis.
-
-## Licence
-
-MIT License.
+- Street Manager is filtered to the Blackpool pilot area using available area
+  fields, postcodes, and an approximate bounding box.
+- Current Blackpool risk zones are coarse and not official GIS boundaries.
+- Agent insights are rule-based, source-limited, and experimental.
+- The public dashboard must remain clearly labelled as not official authority
+  advice.

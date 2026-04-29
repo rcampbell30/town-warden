@@ -7,11 +7,11 @@ It handles:
 - public data ingestion
 - source health checks
 - deduplication
-- SQLite persistence
+- SQLite persistence with optional PostgreSQL via `DATABASE_URL`
 - rule-based civic agents
 - WebSocket streaming
 - history and analytics APIs
-- local developer controls
+- protected developer/admin controls
 
 ## Run
 
@@ -28,15 +28,26 @@ uvicorn main:app --reload
 ```text
 GET  /
 GET  /source-health
+GET  /runtime-status
 GET  /history
 GET  /analytics
+GET  /map-data
+GET  /agent-log
+GET  /insights
 POST /dev/force-refresh
 POST /dev/clear-live-feed
 POST /dev/clear-risk-map
+POST /dev/cleanup-retention
 POST /dev/reset-database
 WS   /ws
 ```
 
 ## Notes
 
-The dev endpoints are for local development only. Do not deploy them publicly without authentication.
+In production, `/dev/*` endpoints require `x-admin-token` matching
+`ADMIN_TOKEN`. Do not expose `ADMIN_TOKEN`, `DATABASE_URL`, or private webhook
+secrets in frontend code.
+
+If `DATABASE_URL` is missing, the backend uses SQLite. If `DATABASE_URL` starts
+with `postgres://` or `postgresql://`, it uses PostgreSQL and creates required
+tables/indexes at startup.

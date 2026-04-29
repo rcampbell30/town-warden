@@ -31,6 +31,16 @@ def test_active_sources_count_when_real_sources_connected(client):
     assert payload["total_sources_count"] == 3
 
 
+def test_runtime_status_exposes_production_readiness_fields(client):
+    payload = client.get("/runtime-status").json()
+
+    assert payload["database_backend"] == "sqlite"
+    assert "dev_routes_protected" in payload
+    assert "system_health_score" in payload
+    assert "civic_risk_score" in payload
+    assert payload["retention"]["events_days"] > 0
+
+
 def test_street_manager_connected_after_webhook(client, permit_payload):
     response = client.post("/webhooks/street-manager/permits", json=permit_payload)
     assert response.status_code == 200

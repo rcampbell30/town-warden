@@ -54,6 +54,10 @@ WEBSOCKET_TICK_SECONDS = _env_int("WEBSOCKET_TICK_SECONDS", 2)
 
 ENVIRONMENT = os.getenv("ENVIRONMENT", "local").strip().lower()
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN")
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+EVENT_RETENTION_DAYS = _env_int("EVENT_RETENTION_DAYS", 90)
+ALERT_RETENTION_DAYS = _env_int("ALERT_RETENTION_DAYS", 90)
+RISK_SNAPSHOT_RETENTION_DAYS = _env_int("RISK_SNAPSHOT_RETENTION_DAYS", 30)
 
 # Placeholder for the roadworks connector once Street Manager access is ready.
 STREET_MANAGER_ENABLED = _env_bool("STREET_MANAGER_ENABLED", False)

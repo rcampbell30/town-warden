@@ -15,8 +15,11 @@ from agents.zone import critical_zone_warden, response_warden
 from config import (
     ADMIN_TOKEN,
     ALLOW_SIMULATION,
+    ALERT_RETENTION_DAYS,
+    EVENT_RETENTION_DAYS,
     ENVIRONMENT,
     MAX_NEW_EVENTS_PER_FETCH,
+    RISK_SNAPSHOT_RETENTION_DAYS,
     SOURCE_REFRESH_SECONDS,
     TOWN_WARDEN_AREA_NAME,
     TOWN_WARDEN_MAX_LAT,
@@ -28,7 +31,9 @@ from config import (
 from connectors import open_meteo, police_uk, simulation, street_manager
 from storage import (
     clear_database,
+    cleanup_old_records,
     connect,
+    database_backend,
     event_exists,
     save_alert,
     save_event,
@@ -53,6 +58,14 @@ app.add_middleware(
 )
 
 setup_database()
+print(
+    "Town Warden startup: "
+    f"environment={ENVIRONMENT}, "
+    f"database_backend={database_backend()}, "
+    f"dev_routes_protected={ENVIRONMENT == 'production'}, "
+    f"simulation_enabled={ALLOW_SIMULATION}",
+    flush=True,
+)
 
 
 history = []
@@ -77,6 +90,8 @@ source_health = {
         "new_events_queued": 0,
         "duplicates_skipped": 0,
         "filtered_out_of_area": 0,
+        "latest_message": "Waiting for first Police.uk check.",
+        "last_error": None,
         "last_checked": None,
     },
     "Open-Meteo": {
@@ -87,6 +102,8 @@ source_health = {
         "new_events_queued": 0,
         "duplicates_skipped": 0,
         "filtered_out_of_area": 0,
+        "latest_message": "Waiting for first Open-Meteo check.",
+        "last_error": None,
         "last_checked": None,
     },
     "Street Manager": {
@@ -97,6 +114,8 @@ source_health = {
         "new_events_queued": 0,
         "duplicates_skipped": 0,
         "filtered_out_of_area": 0,
+        "latest_message": "Waiting for live webhook data.",
+        "last_error": None,
         "last_checked": None,
     },
     "Simulation": {
@@ -107,6 +126,8 @@ source_health = {
         "new_events_queued": 0,
         "duplicates_skipped": 0,
         "filtered_out_of_area": 0,
+        "latest_message": "Simulation fallback enabled." if ALLOW_SIMULATION else "Simulation fallback disabled.",
+        "last_error": None,
         "last_checked": datetime.now().isoformat(),
     },
 }
@@ -208,8 +229,10 @@ def update_source_health(
 
     current["status"] = status
     current["message"] = message
+    current["latest_message"] = message
     current["records_returned"] = records_returned
     current["events_emitted"] = events_emitted
+    current["last_error"] = message if str(status).lower() in {"error", "failed", "offline", "unavailable", "disconnected"} else None
 
     if new_events_queued is not None:
         current["new_events_queued"] = new_events_queued
@@ -629,6 +652,8 @@ def record_street_manager_filtered_event(event, reason):
     info["message"] = (
         f"Webhook received but filtered outside the {TOWN_WARDEN_AREA_NAME} pilot area."
     )
+    info["latest_message"] = info["message"]
+    info["last_error"] = None
     info["records_returned"] += 1
     info["filtered_out_of_area"] = info.get("filtered_out_of_area", 0) + 1
     info["last_checked"] = datetime.now().isoformat()
@@ -666,6 +691,8 @@ def queue_webhook_event(event):
         source_health["Street Manager"]["message"] = (
             "Webhook endpoints are live. Street Manager payload received."
         )
+        source_health["Street Manager"]["latest_message"] = source_health["Street Manager"]["message"]
+        source_health["Street Manager"]["last_error"] = None
         source_health["Street Manager"]["records_returned"] += 1
         source_health["Street Manager"]["events_emitted"] += 1
         source_health["Street Manager"]["new_events_queued"] += 1
@@ -684,6 +711,8 @@ def queue_webhook_event(event):
         source_health["Street Manager"]["message"] = (
             "Webhook endpoints are live. Duplicate Street Manager payload received and ignored."
         )
+        source_health["Street Manager"]["latest_message"] = source_health["Street Manager"]["message"]
+        source_health["Street Manager"]["last_error"] = None
         source_health["Street Manager"]["records_returned"] += 1
         source_health["Street Manager"]["duplicates_skipped"] += 1
         source_health["Street Manager"]["last_checked"] = datetime.now().isoformat()
@@ -811,6 +840,7 @@ def fetch_real_events():
             base_message = source_health[source_name].get("message", "").split(" New queued:")[0]
             source_health[source_name]["new_events_queued"] = source_new
             source_health[source_name]["message"] = f"{base_message} New queued: {source_new}."
+            source_health[source_name]["latest_message"] = source_health[source_name]["message"]
 
     log_agent(
         "Source Monitor",
@@ -1094,8 +1124,14 @@ def runtime_status():
         "agent_log_count": len(agent_log),
         "insight_count": len(insights),
         "environment": ENVIRONMENT,
+        "database_backend": database_backend(),
         "dev_routes_protected": ENVIRONMENT == "production",
         "public_dev_routes_protected": ENVIRONMENT == "production",
+        "retention": {
+            "events_days": EVENT_RETENTION_DAYS,
+            "alerts_days": ALERT_RETENTION_DAYS,
+            "risk_snapshots_days": RISK_SNAPSHOT_RETENTION_DAYS,
+        },
         **system_summary,
         **risk_summary,
     }
@@ -1566,6 +1602,24 @@ def dev_clear_risk_map(_: None = Depends(require_dev_access)):
 
     return {
         "message": "Risk map cleared.",
+        **runtime_status(),
+    }
+
+
+@app.post("/dev/cleanup-retention")
+def dev_cleanup_retention(_: None = Depends(require_dev_access)):
+    deleted = cleanup_old_records(
+        event_retention_days=EVENT_RETENTION_DAYS,
+        alert_retention_days=ALERT_RETENTION_DAYS,
+        risk_snapshot_retention_days=RISK_SNAPSHOT_RETENTION_DAYS,
+    )
+    agent_log[:] = agent_log[-80:]
+    insights[:] = insights[-100:]
+    log_agent("Developer Controls", f"Retention cleanup completed: {deleted}.", "info")
+
+    return {
+        "message": "Retention cleanup completed.",
+        "deleted": deleted,
         **runtime_status(),
     }
 
