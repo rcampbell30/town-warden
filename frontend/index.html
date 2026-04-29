@@ -247,8 +247,8 @@
     .map-marker {
       display: grid;
       place-items: center;
-      width: 30px;
-      height: 30px;
+      width: 34px;
+      height: 34px;
       border-radius: 999px;
       border: 2px solid white;
       box-shadow: 0 3px 8px rgba(15, 23, 42, 0.25);
@@ -257,9 +257,15 @@
       font-size: 0.72rem;
     }
 
-    .map-marker.streetworks { background: #ea580c; }
-    .map-marker.incident { background: #2563eb; }
-    .map-marker.weather { background: #059669; }
+    .map-marker svg {
+      width: 24px;
+      height: 24px;
+      display: block;
+    }
+
+    .map-marker.streetworks { background: linear-gradient(135deg, #f68712, #b22222); }
+    .map-marker.incident { background: #1e90ff; }
+    .map-marker.weather { background: linear-gradient(135deg, #1e90ff, #146c50); }
     .map-marker.fallback { outline: 2px dashed rgba(15, 23, 42, 0.35); }
 
     .side-panel {
@@ -565,24 +571,27 @@
     /* Production polish layer: keeps the existing data wiring while giving the
        public dashboard a calmer civic-product interface. */
     :root {
-      --page-bg: #f4f8fb;
-      --page-bg-2: #e8f1f4;
+      --page-bg: #fff8ed;
+      --page-bg-2: #e7f4ff;
       --ink: #122332;
       --ink-soft: #4f6674;
       --ink-muted: #6b7f8a;
       --panel: #ffffff;
-      --panel-soft: #f8fbfc;
-      --panel-tint: #eef6f7;
-      --line: #d8e5eb;
-      --navy: #102f43;
-      --navy-2: #17445a;
-      --teal: #0d766e;
-      --teal-soft: #e3f5f2;
-      --blue: #2563eb;
-      --amber: #b76a16;
-      --amber-soft: #fff4df;
-      --red: #b4233a;
-      --red-soft: #fff0f2;
+      --panel-soft: #fffaf2;
+      --panel-tint: #eef7ff;
+      --line: #ead8c0;
+      --navy: #1c3152;
+      --navy-2: #273d63;
+      --teal: #1e90ff;
+      --teal-soft: #eaf5ff;
+      --blue: #1e90ff;
+      --amber: #f68712;
+      --amber-soft: #fff2dd;
+      --red: #b22222;
+      --red-soft: #fff0ee;
+      --pink: #ff69b4;
+      --purple: #4b0082;
+      --coast: #ffa500;
       --green: #146c50;
       --green-soft: #e7f6ef;
       --radius-sm: 10px;
@@ -602,37 +611,45 @@
     }
 
     body.dark {
-      --page-bg: #0d1724;
-      --page-bg-2: #102338;
-      --ink: #e7eef6;
-      --ink-soft: #b2c1cd;
-      --ink-muted: #8fa2b0;
-      --panel: #121f2d;
-      --panel-soft: #17283a;
-      --panel-tint: #1b3441;
-      --line: #284155;
-      --navy: #d8ecf8;
-      --navy-2: #a7d3e6;
-      --teal: #5eead4;
-      --teal-soft: #123b3a;
-      --amber: #f6b85c;
-      --amber-soft: #3a2a12;
-      --red: #fb7185;
-      --red-soft: #3f1820;
+      --page-bg: #0a1128;
+      --page-bg-2: #111a3d;
+      --ink: #f5f8ff;
+      --ink-soft: #c9d5f0;
+      --ink-muted: #9eacd0;
+      --panel: #1e2952;
+      --panel-soft: #172244;
+      --panel-tint: #242f61;
+      --line: #344373;
+      --navy: #fff7e8;
+      --navy-2: #ffdca8;
+      --teal: #1e90ff;
+      --teal-soft: #112c56;
+      --amber: #f68712;
+      --amber-soft: #3f2810;
+      --red: #ff7a7a;
+      --red-soft: #3d1720;
+      --pink: #ff69b4;
+      --purple: #4b0082;
+      --coast: #ffa500;
       --green: #74d7a4;
       --green-soft: #16362a;
+      --shadow-card: 0 18px 45px rgba(0, 0, 0, 0.32);
+      --shadow-hover: 0 24px 62px rgba(246, 135, 18, 0.18);
+      --shadow-tool: 0 28px 78px rgba(255, 105, 180, 0.14);
     }
 
     body {
       padding: 0;
       background:
+        radial-gradient(circle at 14% 0%, rgba(255, 105, 180, 0.12), transparent 26%),
+        radial-gradient(circle at 88% 8%, rgba(30, 144, 255, 0.15), transparent 30%),
         linear-gradient(180deg, var(--page-bg-2) 0, var(--page-bg) 360px),
         var(--page-bg);
       color: var(--ink);
       font-size: 16px;
     }
 
-    a { color: var(--teal); }
+    a { color: var(--blue); }
 
     .page {
       max-width: 1360px;
@@ -647,22 +664,51 @@
       padding: clamp(26px, 5vw, 58px);
       color: #f8fdff;
       background:
-        linear-gradient(135deg, rgba(15, 78, 88, 0.94), rgba(16, 47, 67, 0.98)),
-        #102f43;
+        linear-gradient(180deg, rgba(255, 255, 255, 0.11) 0 2px, transparent 2px 7px),
+        radial-gradient(circle at 18% 18%, rgba(255, 105, 180, 0.28), transparent 24%),
+        linear-gradient(135deg, rgba(246, 135, 18, 0.94), rgba(178, 34, 34, 0.93) 45%, rgba(75, 0, 130, 0.96)),
+        #4b0082;
       box-shadow: var(--shadow-tool);
     }
 
     .hero::before {
       content: "";
       position: absolute;
-      inset: 0;
+      inset: auto 0 0 auto;
+      width: min(720px, 72vw);
+      height: 250px;
       pointer-events: none;
       background:
-        linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-        linear-gradient(0deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-      background-size: 48px 48px;
-      -webkit-mask-image: linear-gradient(120deg, rgba(0, 0, 0, 0.72), transparent 74%);
-      mask-image: linear-gradient(120deg, rgba(0, 0, 0, 0.72), transparent 74%);
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 720 250'%3E%3Cg fill='none' stroke='white' stroke-width='6' stroke-linecap='round' stroke-linejoin='round' opacity='.72'%3E%3Cpath d='M20 220h680'/%3E%3Cpath d='M80 220v-42h210v42M98 178l24-28h128l24 28M130 220v-25M190 220v-25M250 220v-25'/%3E%3Cpath d='M375 220 430 34l55 186M398 145h64M413 95h34M430 34v-18M410 220l20-186M450 220 430 34'/%3E%3Cpath d='M530 220v-50h116v50M548 170h80M555 188h18M588 188h18M621 188h18M548 220c0-20 18-36 40-36s40 16 40 36'/%3E%3Cpath d='M520 168h140'/%3E%3Ccircle cx='560' cy='220' r='10' fill='white' stroke='none'/%3E%3Ccircle cx='625' cy='220' r='10' fill='white' stroke='none'/%3E%3C/g%3E%3C/svg%3E") bottom right / contain no-repeat;
+      opacity: 0.16;
+      transform: translate(16px, 14px);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 38px;
+      pointer-events: none;
+      background:
+        radial-gradient(60px 18px at 30px 2px, rgba(255, 255, 255, 0.22), transparent 70%) repeat-x;
+      background-size: 120px 38px;
+      opacity: 0.72;
+    }
+
+    body.dark .hero {
+      background:
+        radial-gradient(circle at 18% 22%, rgba(255, 105, 180, 0.3), transparent 24%),
+        radial-gradient(circle at 78% 12%, rgba(30, 144, 255, 0.26), transparent 28%),
+        linear-gradient(135deg, rgba(10, 17, 40, 0.98), rgba(30, 41, 82, 0.96) 58%, rgba(75, 0, 130, 0.92)),
+        #0a1128;
+    }
+
+    body.dark .hero::before {
+      opacity: 0.24;
+      filter: drop-shadow(0 0 10px rgba(255, 105, 180, 0.45)) drop-shadow(0 0 18px rgba(246, 135, 18, 0.25));
     }
 
     .hero-grid {
@@ -685,7 +731,7 @@
       border: 1px solid rgba(255, 255, 255, 0.26);
       border-radius: 999px;
       padding: 7px 12px;
-      color: #d8fbf5;
+      color: #fff8ea;
       background: rgba(255, 255, 255, 0.1);
       font-size: 0.78rem;
       font-weight: 800;
@@ -701,7 +747,7 @@
     }
 
     .hero .subtitle {
-      color: #dff7fb;
+      color: #fff4dc;
       font-size: 1.38rem;
       font-weight: 760;
       max-width: 760px;
@@ -710,7 +756,7 @@
     .hero-description {
       max-width: 710px;
       margin: 0;
-      color: rgba(248, 253, 255, 0.82);
+      color: rgba(255, 250, 240, 0.88);
       font-size: 1.02rem;
     }
 
@@ -757,9 +803,9 @@
     }
 
     .status-pill.connected {
-      color: #d8ffe9;
-      border-color: rgba(116, 215, 164, 0.6);
-      background: rgba(20, 108, 80, 0.36);
+      color: #fff9e9;
+      border-color: rgba(255, 165, 0, 0.7);
+      background: rgba(20, 108, 80, 0.34);
     }
 
     .status-pill.unavailable {
@@ -780,6 +826,16 @@
     .section {
       display: grid;
       gap: var(--step-4);
+      position: relative;
+    }
+
+    .section:not(:first-of-type)::before {
+      content: "";
+      width: min(210px, 45vw);
+      height: 5px;
+      border-radius: 999px;
+      background: repeating-linear-gradient(90deg, var(--amber) 0 18px, #ffffff 18px 28px, var(--red) 28px 46px, #ffffff 46px 56px);
+      opacity: 0.34;
     }
 
     .section-heading {
@@ -822,10 +878,10 @@
       position: absolute;
       inset: 0 0 auto;
       height: 5px;
-      background: var(--teal);
+      background: linear-gradient(90deg, var(--amber), var(--pink));
     }
 
-    .summary-item.risk-card::before { background: var(--amber); }
+    .summary-item.risk-card::before { background: var(--red); }
     .summary-item.system-card::before { background: var(--green); }
     .summary-item.source-cardlet::before { background: var(--blue); }
 
@@ -1048,7 +1104,7 @@
       font-size: 0.9rem;
     }
 
-    .type-badge.incident { color: #1d4ed8; background: #eef4ff; border-color: #c8d8ff; }
+    .type-badge.incident { color: #1557b0; background: #eef6ff; border-color: #c8e0ff; }
     .type-badge.weather { color: #047857; background: #e8f8f0; border-color: #bee9d3; }
     .type-badge.streetworks,
     .type-badge.permit,
@@ -1097,10 +1153,10 @@
     }
 
     .map-filter-bar button.active {
-      background: var(--navy);
-      border-color: var(--navy);
+      background: linear-gradient(135deg, var(--amber), var(--red));
+      border-color: var(--amber);
       color: #ffffff;
-      box-shadow: 0 10px 24px rgba(16, 47, 67, 0.18);
+      box-shadow: 0 10px 24px rgba(246, 135, 18, 0.24);
     }
 
     #map {
@@ -1123,6 +1179,23 @@
       background: var(--panel-soft);
       padding: var(--step-4);
       gap: var(--step-4);
+    }
+
+    .blackpool-quick-search {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      margin-top: 9px;
+    }
+
+    .blackpool-quick-search button {
+      min-height: 32px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      color: var(--navy);
+      background: color-mix(in srgb, var(--pink) 10%, var(--panel));
+      border-color: color-mix(in srgb, var(--pink) 26%, var(--line));
+      font-size: 0.82rem;
     }
 
     .side-panel section {
@@ -1251,6 +1324,42 @@
       gap: 4px;
     }
 
+    .footer-rock {
+      margin-top: 6px;
+      color: var(--ink-muted);
+      font-size: 0.92rem;
+    }
+
+    .footer-rock::before {
+      content: "";
+      display: inline-block;
+      width: 26px;
+      height: 12px;
+      margin-right: 8px;
+      border-radius: 999px;
+      vertical-align: -1px;
+      background: repeating-linear-gradient(90deg, var(--red) 0 5px, #fff 5px 9px, var(--amber) 9px 14px);
+      border: 1px solid color-mix(in srgb, var(--red) 28%, var(--line));
+    }
+
+    .footer::after {
+      content: "tram to the tower";
+      align-self: end;
+      justify-self: end;
+      color: color-mix(in srgb, var(--ink-muted) 72%, transparent);
+      font-size: 0.76rem;
+      padding-left: 38px;
+      background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 72 28'%3E%3Cg fill='none' stroke='%23F68712' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 21h50v-12H14L8 15v6Z'/%3E%3Cpath d='M18 12h12M36 12h12M16 21l-4 4M50 21l4 4'/%3E%3C/g%3E%3Ccircle cx='21' cy='23' r='3' fill='%23B22222'/%3E%3Ccircle cx='45' cy='23' r='3' fill='%23B22222'/%3E%3C/svg%3E") left center / 34px 18px no-repeat;
+    }
+
+    body.dark .theme-button,
+    body.dark .status-pill,
+    body.dark .footer-link,
+    body.dark .map-filter-bar button.active {
+      box-shadow: 0 0 0 1px rgba(246, 135, 18, 0.18), 0 0 22px rgba(255, 105, 180, 0.16);
+    }
+
     .footer-links {
       display: flex;
       flex-wrap: wrap;
@@ -1368,7 +1477,7 @@
         </div>
         <div class="hero-actions" aria-label="Connection status">
           <div class="hero-tools">
-            <button id="themeToggle" class="theme-button" type="button" aria-label="Toggle dark mode">Theme</button>
+            <button id="themeToggle" class="theme-button" type="button" aria-label="Toggle Blackpool Illuminations mode">💡 Lights On/Off</button>
             <div class="last-updated">Last updated: <span id="heroUpdated">--</span></div>
             <div id="statusPill" class="status-pill" role="status" aria-live="polite">Connecting...</div>
           </div>
@@ -1500,6 +1609,7 @@
             <label for="locationSearch"><strong>Find area or address</strong></label>
             <input id="locationSearch" type="search" placeholder="Search Town Centre, North Shore, address..." aria-describedby="searchHelp">
             <div id="searchHelp" class="caption">Search matches risk zones and latest civic signals.</div>
+            <div class="blackpool-quick-search" id="blackpoolQuickSearch" aria-label="Blackpool quick search suggestions"></div>
           </div>
 
           <section>
@@ -1552,6 +1662,7 @@
         <strong id="footerText">Built as a civic-tech prototype for Blackpool.</strong>
         <span id="footerSources">Data sources: Police.uk, Open-Meteo, Street Manager.</span>
         <span>Not an official council, police, NHS, or emergency-service system.</span>
+        <span class="footer-rock">No compote here — only the finest seaside rock.</span>
       </div>
       <div class="footer-links">
         <a class="footer-link" id="projectGitHubLink" href="https://github.com/rcampbell30/town-warden">Project GitHub</a>
@@ -1627,6 +1738,14 @@
 
   let map;
   let zoneLayerGroup;
+  const BLACKPOOL_LANDMARKS = [
+    { name: "Promenade", zoneHint: "Town Centre", terms: ["promenade", "golden mile"] },
+    { name: "Golden Mile", zoneHint: "Town Centre", terms: ["golden mile", "promenade"] },
+    { name: "Blackpool Tower", zoneHint: "Town Centre", terms: ["blackpool tower", "tower"] },
+    { name: "North Pier", zoneHint: "North Shore", terms: ["north pier"] },
+    { name: "Central Pier", zoneHint: "Town Centre", terms: ["central pier"] },
+    { name: "South Pier", zoneHint: "South Shore", terms: ["south pier"] }
+  ];
   const sourceLayers = {
     "Police.uk": L.layerGroup(),
     "Open-Meteo": L.layerGroup(),
@@ -1725,6 +1844,14 @@
     if (value >= 80) return { key: "elevated", label: "Elevated", css: "risk-elevated", color: "#ef4444" };
     if (value >= 40) return { key: "watch", label: "Watch", css: "risk-watch", color: "#f59e0b" };
     return { key: "low", label: "Low", css: "risk-stable", color: "#22c55e" };
+  }
+
+  function civicRiskPublicLabel(label, score) {
+    const raw = String(label || "").toLowerCase();
+    if (score !== null && score !== undefined && score < 25) return "Promenade looks calm";
+    if (raw === "low") return "Promenade looks calm";
+    if (raw === "watch" || raw === "elevated") return "Signals are building along the coast";
+    return label || "Limited confidence";
   }
 
   function formatTime(value) {
@@ -1876,7 +2003,7 @@
       ? "risk-watch"
       : civicScore >= 55 ? "risk-elevated" : civicScore >= 25 ? "risk-watch" : "risk-stable";
     const riskScoreText = civicScore === null || civicScore === undefined ? "" : ` (${civicScore}/100)`;
-    document.getElementById("answerEverything").innerHTML = `<span class="${riskClass}">${escapeHtml(civicLabel)}</span>${riskScoreText}`;
+    document.getElementById("answerEverything").innerHTML = `<span class="${riskClass}">${escapeHtml(civicRiskPublicLabel(civicLabel, civicScore))}</span>${riskScoreText}`;
 
     const topRisk = viewData.highest_risk_zone || (mapData.zones.length
       ? [...mapData.zones].sort((a, b) => b.risk_score - a.risk_score)[0]
@@ -2090,14 +2217,18 @@
 
   function markerIcon(signal) {
     const kind = eventMarkerKind(signal);
-    const label = kind === "streetworks" ? "SW" : kind === "weather" ? "WX" : "IN";
     const fallback = coordinateConfidence(signal) === "zone_fallback" ? " fallback" : "";
+    const icons = {
+      streetworks: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M8 24h16l-8-20-8 20Z" fill="none" stroke="white" stroke-width="2.4" stroke-linejoin="round"/><path d="M12 15h8M14 9h4M11 24l5-20 5 20" stroke="white" stroke-width="1.8" stroke-linecap="round"/><circle cx="11" cy="25" r="2" fill="white"/><circle cx="21" cy="25" r="2" fill="white"/></svg>`,
+      weather: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 20h13a5 5 0 0 0-1-9 7 7 0 0 0-13-1 5 5 0 0 0 1 10Z" fill="none" stroke="white" stroke-width="2.4" stroke-linejoin="round"/><path d="M9 25c3-2 6-2 9 0s5 2 7 0" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>`,
+      incident: `<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 5 27 25H5L16 5Z" fill="none" stroke="white" stroke-width="2.4" stroke-linejoin="round"/><path d="M16 12v6M16 22h.1" stroke="white" stroke-width="2.6" stroke-linecap="round"/></svg>`
+    };
     return L.divIcon({
       className: "",
-      html: `<span class="map-marker ${kind}${fallback}">${label}</span>`,
-      iconSize: [30, 30],
-      iconAnchor: [15, 15],
-      popupAnchor: [0, -15]
+      html: `<span class="map-marker ${kind}${fallback}">${icons[kind] || icons.incident}</span>`,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+      popupAnchor: [0, -17]
     });
   }
 
@@ -2179,6 +2310,31 @@
     });
   }
 
+  function zoneForLandmark(landmark) {
+    const hint = String(landmark.zoneHint || "").toLowerCase();
+    return mapData.zones.find(zone => String(zone.name || "").toLowerCase().includes(hint))
+      || mapData.zones.find(zone => hint.includes(String(zone.name || "").toLowerCase()))
+      || mapData.zones[0];
+  }
+
+  function renderBlackpoolQuickSearches() {
+    const container = document.getElementById("blackpoolQuickSearch");
+    if (!container) return;
+    container.innerHTML = BLACKPOOL_LANDMARKS.map(item => `
+      <button type="button" data-blackpool-search="${escapeHtml(item.name)}">${escapeHtml(item.name)}</button>
+    `).join("");
+    Array.from(container.querySelectorAll("button[data-blackpool-search]")).forEach(button => {
+      button.addEventListener("click", () => {
+        const value = button.getAttribute("data-blackpool-search") || "";
+        document.getElementById("locationSearch").value = value;
+        updateSearchResults(value);
+        const landmark = BLACKPOOL_LANDMARKS.find(item => item.name === value);
+        const zone = landmark ? zoneForLandmark(landmark) : null;
+        if (zone) selectZoneById(zone.id, true);
+      });
+    });
+  }
+
   // Source layer toggles:
   // Street Manager is visible as a live source when source-health reports connected activity.
   function annotateLayerControls() {
@@ -2255,6 +2411,19 @@
   function updateSearchResults(query) {
     const q = query.trim().toLowerCase();
     const results = [];
+    BLACKPOOL_LANDMARKS.forEach((landmark) => {
+      const matches = !q || landmark.name.toLowerCase().includes(q) || landmark.terms.some(term => term.includes(q) || q.includes(term));
+      const zone = zoneForLandmark(landmark);
+      if (matches && zone) {
+        results.push({
+          type: "landmark",
+          label: landmark.name,
+          zoneId: zone.id,
+          score: zone.risk_score || 0,
+          caption: `${landmark.zoneHint} quick search`
+        });
+      }
+    });
     mapData.zones.forEach((zone) => {
       if (!q || zone.name.toLowerCase().includes(q)) {
         results.push({ type: "zone", label: zone.name, zoneId: zone.id, score: zone.risk_score, center: [zone.lat, zone.lng] });
@@ -2275,9 +2444,10 @@
     }
 
     container.innerHTML = results.slice(0, 12).map((result, idx) => {
-      if (result.type === "zone") {
+      if (result.type === "zone" || result.type === "landmark") {
         const activeClass = selectedZoneId === result.zoneId ? "active" : "";
-        return `<div class="list-item ${activeClass}"><button type="button" aria-label="View ${escapeHtml(result.label)}" data-result="zone-${idx}"><strong>${escapeHtml(result.label)}</strong><div class="caption">Risk ${Math.round(result.score)}</div></button></div>`;
+        const caption = result.type === "landmark" ? result.caption : `Risk ${Math.round(result.score)}`;
+        return `<div class="list-item ${activeClass}"><button type="button" aria-label="View ${escapeHtml(result.label)}" data-result="${result.type}-${idx}"><strong>${escapeHtml(result.label)}</strong><div class="caption">${escapeHtml(caption)}</div></button></div>`;
       }
       return `<div class="list-item"><button type="button" aria-label="View signal ${escapeHtml(result.label)}" data-result="signal-${idx}"><strong>${escapeHtml(result.label)}</strong><div class="caption">${escapeHtml(result.signal.description || result.signal.text || "No summary")}</div></button></div>`;
     }).join("");
@@ -2289,7 +2459,7 @@
         const result = results[Number(idxText)];
         if (!result) return;
 
-        if (kind === "zone") {
+        if (kind === "zone" || kind === "landmark") {
           selectZoneById(result.zoneId, true);
         } else {
           const zone = mapData.zones.find(z => z.name === result.signal.zone) || mapData.zones[0];
@@ -2354,6 +2524,7 @@
       latestRiskMap = Object.fromEntries(mapData.zones.map(zone => [zone.name, zone.risk_score]));
       renderMapLayers();
       renderZoneJumpButtons();
+      renderBlackpoolQuickSearches();
       updateSearchResults(document.getElementById("locationSearch").value || "");
       if (!selectedZoneId && mapData.zones.length) showZonePanel(null);
     } catch {
@@ -2481,6 +2652,7 @@
     initMapFilters();
     renderMapLayers();
     renderZoneJumpButtons();
+    renderBlackpoolQuickSearches();
     updateSearchResults(document.getElementById("locationSearch").value || "");
 
     setInterval(loadRuntimeStatus, 12000);
