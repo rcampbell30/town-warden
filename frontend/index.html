@@ -1104,6 +1104,101 @@
       font-size: 0.9rem;
     }
 
+    .incident-context-box {
+      border: 1px solid color-mix(in srgb, var(--blue) 28%, var(--line));
+      border-left: 6px solid var(--blue);
+      border-radius: var(--radius-lg);
+      background: linear-gradient(135deg, var(--teal-soft), var(--panel));
+      padding: var(--step-4);
+      margin-bottom: var(--step-4);
+      display: grid;
+      gap: var(--step-2);
+    }
+
+    .incident-context-box h3,
+    .incident-pattern-summary h3 {
+      margin: 0;
+      color: var(--navy);
+    }
+
+    .incident-context-box p {
+      margin: 0;
+      color: var(--ink-soft);
+    }
+
+    .resident-use {
+      color: var(--navy);
+      font-weight: 750;
+    }
+
+    .incident-pattern-summary {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--panel);
+      box-shadow: var(--shadow-card);
+      padding: var(--step-4);
+      margin-bottom: var(--step-4);
+      display: grid;
+      gap: var(--step-3);
+    }
+
+    .incident-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--step-2);
+    }
+
+    .incident-summary-item {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--panel-soft);
+      padding: 12px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .incident-summary-item span {
+      color: var(--ink-soft);
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .incident-summary-item strong {
+      color: var(--navy);
+      font-size: 1rem;
+    }
+
+    .signal-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .context-badge {
+      display: inline-flex;
+      align-items: center;
+      width: fit-content;
+      border-radius: 999px;
+      border: 1px solid color-mix(in srgb, var(--blue) 35%, var(--line));
+      background: color-mix(in srgb, var(--blue) 9%, var(--panel));
+      color: var(--blue);
+      padding: 4px 8px;
+      font-size: 0.68rem;
+      font-weight: 850;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .police-detail-list {
+      display: grid;
+      gap: 5px;
+      margin-top: var(--step-1);
+      color: var(--ink-soft);
+      font-size: 0.88rem;
+    }
+
     .type-badge.incident { color: #1557b0; background: #eef6ff; border-color: #c8e0ff; }
     .type-badge.weather { color: #047857; background: #e8f8f0; border-color: #bee9d3; }
     .type-badge.streetworks,
@@ -1438,6 +1533,7 @@
 
       .summary-grid,
       .signals-grid,
+      .incident-summary-grid,
       .source-grid,
       .insights-grid {
         grid-template-columns: 1fr;
@@ -1473,7 +1569,7 @@
           <span class="hero-kicker" id="dashboardSubtitle">Blackpool Civic Intelligence Prototype</span>
           <h1 id="dashboardTitle">Town Warden</h1>
           <div class="subtitle" id="dashboardSummary">A clearer view of local civic signals for Blackpool.</div>
-          <p class="hero-description" id="heroDescription">Town Warden brings together public incident intelligence, weather context, and live street works notifications to help residents and stakeholders understand what is changing locally.</p>
+          <p class="hero-description" id="heroDescription">Town Warden brings together public incident pattern data, weather context, and live street works notifications to help residents and stakeholders understand what is changing locally.</p>
         </div>
         <div class="hero-actions" aria-label="Connection status">
           <div class="hero-tools">
@@ -1573,10 +1669,17 @@
     <section class="section" aria-labelledby="latestSignalsTitle">
       <div class="section-heading">
         <div>
-          <h2 id="latestSignalsTitle">Latest Civic Signals</h2>
-          <p>Recent public-source signals translated into resident-friendly cards.</p>
+          <h2 id="latestSignalsTitle">Latest Civic Signals & Resident Awareness</h2>
+          <p>Public-source signals translated into resident-friendly context. Police.uk reports are historical pattern data, not live alerts.</p>
         </div>
       </div>
+      <aside class="incident-context-box" aria-label="Police.uk public data context">
+        <h3>About public incident reports</h3>
+        <p>Town Warden uses public Police.uk data to show reported incident patterns in this area. These reports are historical, approximate, and updated monthly. They are useful for local awareness and trend spotting, but they are not live emergency alerts.</p>
+        <p>Emergency? Call 999. Non-emergency? Use 101 or report through the appropriate official service.</p>
+        <p class="resident-use">Resident use: useful for spotting local patterns, planning routes, and understanding recent public reports.</p>
+      </aside>
+      <div id="incidentPatternSummary" class="incident-pattern-summary" hidden></div>
       <div id="latestSignals" class="signals-grid"><div class="loading-state">Loading latest signals...</div></div>
     </section>
 
@@ -1597,7 +1700,7 @@
             <div class="map-filter-bar" aria-label="Map filters">
               <button type="button" class="active" data-map-filter="all">All</button>
               <button type="button" data-map-filter="streetworks">Street works</button>
-              <button type="button" data-map-filter="incidents">Incidents</button>
+              <button type="button" data-map-filter="incidents">Public reports</button>
               <button type="button" data-map-filter="high">High risk only</button>
             </div>
           </div>
@@ -1637,7 +1740,7 @@
               <div class="legend-row"><span class="swatch" style="background:#f59e0b"></span> Watch</div>
               <div class="legend-row"><span class="swatch" style="background:#ef4444"></span> Elevated</div>
               <div class="legend-row"><span class="swatch" style="background:#dc2626"></span> Critical</div>
-              <div class="legend-row"><span class="map-marker incident">IN</span> Police.uk incident marker</div>
+              <div class="legend-row"><span class="map-marker incident">IN</span> Police.uk public report marker</div>
               <div class="legend-row"><span class="map-marker weather">WX</span> Open-Meteo context marker</div>
               <div class="legend-row"><span class="map-marker streetworks">SW</span> Street Manager roadworks marker</div>
               <div class="layer-note">Some locations are approximate where public sources do not provide precise coordinates. This is an early indicator, not official advice.</div>
@@ -1705,10 +1808,10 @@
   let townConfig = { ...DEFAULT_TOWN_CONFIG };
   let SOURCE_PUBLIC_COPY = {
     "Police.uk": {
-      title: "Incidents",
+      title: "Resident Awareness",
       source: "Police.uk",
-      description: "Public incident intelligence for local context.",
-      limitation: "Public incident data can lag operational reality."
+      description: "Public incident pattern data for local awareness.",
+      limitation: "Historical, approximate, and usually updated monthly."
     },
     "Open-Meteo": {
       title: "Weather",
@@ -1802,7 +1905,7 @@
     document.getElementById("dashboardTitle").innerText = townConfig.dashboard_title || "Town Warden";
     document.getElementById("dashboardSubtitle").innerText = townConfig.dashboard_subtitle || `${displayName} Civic Intelligence Prototype`;
     document.getElementById("dashboardSummary").innerText = `A clearer view of local civic signals for ${displayName}.`;
-    document.getElementById("heroDescription").innerText = `${townConfig.dashboard_title || "Town Warden"} brings together public incident intelligence, weather context, and live street works notifications to help residents and stakeholders understand what is changing locally.`;
+    document.getElementById("heroDescription").innerText = `${townConfig.dashboard_title || "Town Warden"} brings together public incident pattern data, weather context, and live street works notifications to help residents and stakeholders understand what is changing locally.`;
     document.getElementById("publicDisclaimer").innerText = townConfig.public_disclaimer || DEFAULT_TOWN_CONFIG.public_disclaimer;
     document.getElementById("civicPictureIntro").innerText = `Plain-English status for what the system can currently see across the ${displayName} pilot area.`;
     document.getElementById("mapTitle").innerText = `${displayName} Risk & Signal Map`;
@@ -1877,14 +1980,154 @@
       text = text.replace(/awaiting external approval|pending notifications|webhook endpoints ready/gi, "live street works notifications");
       text = text.replace(
         /Pending sources:\s*Street Manager\.?/gi,
-        "Street Manager is connected but has not contributed recent Blackpool-relevant events in this analysis window."
+        `Street Manager is connected but has not contributed recent ${townDisplayName()}-relevant events in this analysis window.`
       );
       text = text.replace(
         /Pending\/checking sources:\s*Street Manager\.?/gi,
-        "Street Manager is connected but has not contributed recent Blackpool-relevant events in this analysis window."
+        `Street Manager is connected but has not contributed recent ${townDisplayName()}-relevant events in this analysis window.`
       );
     }
     return text.trim();
+  }
+
+  function isPoliceEvent(event) {
+    const source = String(event?.source || "").toLowerCase();
+    return source === "police.uk" || source.includes("police.uk") || source.includes("police");
+  }
+
+  function humanizePoliceCategory(value) {
+    const raw = String(value || "public incident report").replace(/[-_]+/g, " ").trim();
+    if (!raw) return "Public incident report";
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  }
+
+  function policeRecordedMonthValue(event) {
+    const metadata = event?.metadata || {};
+    const candidates = [
+      metadata.incident_month,
+      metadata.month,
+      metadata.date,
+      event?.incident_month,
+      event?.month,
+      event?.date,
+      event?.source_event_id,
+      event?.text,
+      event?.description
+    ].filter(Boolean);
+    const match = candidates.map(value => String(value).match(/\b(20\d{2})-(0[1-9]|1[0-2])\b/)).find(Boolean);
+    return match ? `${match[1]}-${match[2]}` : "";
+  }
+
+  function formatPoliceRecordedPeriod(event) {
+    const monthValue = policeRecordedMonthValue(event);
+    if (!monthValue) return "Recorded period unavailable";
+    const date = new Date(`${monthValue}-01T00:00:00`);
+    if (Number.isNaN(date.getTime())) return monthValue;
+    return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  }
+
+  function policeCategory(event) {
+    const metadata = event?.metadata || {};
+    return humanizePoliceCategory(metadata.category || metadata.crime_category || event?.category || event?.subtype || "public incident report");
+  }
+
+  function policeApproxArea(event) {
+    const metadata = event?.metadata || {};
+    const raw = metadata.street_name || metadata.approx_street || metadata.location_name || metadata.location || event?.location || event?.zone || townDisplayName();
+    return String(raw || townDisplayName()).replace(/\s+/g, " ").trim();
+  }
+
+  function policeReadableArea(event) {
+    return policeApproxArea(event).replace(/^on or near\s+/i, "").trim() || policeApproxArea(event);
+  }
+
+  function policeFriendlyDescription(event) {
+    const category = policeCategory(event);
+    const area = policeReadableArea(event);
+    const period = formatPoliceRecordedPeriod(event);
+    if (period === "Recorded period unavailable") {
+      return `${category} was reported near ${area}.`;
+    }
+    return `${category} was reported near ${area} in ${period}.`;
+  }
+
+  // Police.uk incident_month/date is the recorded public data period.
+  // Town Warden timestamps are when this dashboard pulled, stored, or displayed
+  // the record. These must stay separate: Police.uk data is historical public
+  // pattern data, not a live incident alert.
+  function renderPoliceSignalCard(event) {
+    return `
+      <article class="signal-card">
+        <div class="signal-badges">
+          <span class="type-badge incident">Public reports</span>
+          <span class="context-badge">Historical data</span>
+          <span class="context-badge">Approximate location</span>
+          <span class="context-badge">Public source</span>
+          <span class="context-badge">Updated monthly</span>
+        </div>
+        <h3 class="signal-title">${escapeHtml(policeCategory(event))}</h3>
+        <div class="signal-description">
+          ${escapeHtml(policeFriendlyDescription(event))}
+          <br>This is historical Police.uk data, not a live incident alert.
+        </div>
+        <div class="police-detail-list">
+          <span><strong>Recorded by Police.uk:</strong> ${escapeHtml(formatPoliceRecordedPeriod(event))}</span>
+          <span><strong>Detected by Town Warden:</strong> ${escapeHtml(formatTime(event.timestamp))}</span>
+          <span><strong>Approximate area:</strong> ${escapeHtml(policeApproxArea(event))}</span>
+          <span><strong>Category:</strong> ${escapeHtml(policeCategory(event))}</span>
+          <span><strong>Source:</strong> Police.uk public street-level data</span>
+        </div>
+      </article>
+    `;
+  }
+
+  function topCountLabel(items, fallback) {
+    const counts = items.filter(Boolean).reduce((acc, item) => {
+      acc[item] = (acc[item] || 0) + 1;
+      return acc;
+    }, {});
+    const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+    return top ? `${top[0]} (${top[1]} reports)` : fallback;
+  }
+
+  function policeTrendSummary(policeEvents) {
+    const monthCounts = policeEvents.reduce((acc, event) => {
+      const month = policeRecordedMonthValue(event);
+      if (month) acc[month] = (acc[month] || 0) + 1;
+      return acc;
+    }, {});
+    const months = Object.keys(monthCounts).sort();
+    if (months.length < 2) return "Not enough monthly data yet";
+    const latest = months[months.length - 1];
+    const previous = months[months.length - 2];
+    if (monthCounts[latest] > monthCounts[previous]) return "Reports increased compared with previous month";
+    if (monthCounts[latest] < monthCounts[previous]) return "Reports decreased compared with previous month";
+    return "Reports are broadly stable";
+  }
+
+  function renderIncidentPatternSummary() {
+    const container = document.getElementById("incidentPatternSummary");
+    if (!container) return;
+    const policeEvents = latestEvents.filter(isPoliceEvent);
+    if (!policeEvents.length) {
+      container.hidden = true;
+      container.innerHTML = "";
+      return;
+    }
+    container.hidden = false;
+    const categories = policeEvents.map(policeCategory);
+    const areas = policeEvents.map(policeApproxArea);
+    const zones = policeEvents.map(event => event.zone || event.metadata?.zone).filter(Boolean);
+    container.innerHTML = `
+      <h3>Public incident pattern snapshot</h3>
+      <div class="incident-summary-grid">
+        <div class="incident-summary-item"><span>Total reports shown</span><strong>${policeEvents.length}</strong></div>
+        <div class="incident-summary-item"><span>Most reported category</span><strong>${escapeHtml(topCountLabel(categories, "Not enough monthly data yet"))}</strong></div>
+        <div class="incident-summary-item"><span>Most active public-report area</span><strong>${escapeHtml(topCountLabel(areas, "Not enough monthly data yet"))}</strong></div>
+        <div class="incident-summary-item"><span>Reports by zone</span><strong>${escapeHtml(topCountLabel(zones, "Not enough mapped zone data yet"))}</strong></div>
+      </div>
+      <p class="caption">${escapeHtml(policeTrendSummary(policeEvents))}. These are reports in public Police.uk data, not live emergency alerts.</p>
+    `;
   }
 
   function sourceIsActive(info) {
@@ -1921,7 +2164,7 @@
   function signalLabel(event) {
     if (isStreetManagerEvent(event)) return streetManagerKind(event);
     const type = String(event?.type || "signal").toLowerCase();
-    if (type === "incident") return "Incidents";
+    if (type === "incident") return "Public reports";
     if (type === "weather") return "Weather";
     if (type === "infrastructure") return "Street works";
     return type.charAt(0).toUpperCase() + type.slice(1);
@@ -1939,6 +2182,7 @@
 
   function signalTitle(event) {
     if (event?.title && !String(event.title).toLowerCase().includes("unknown reference")) return event.title;
+    if (isPoliceEvent(event)) return policeCategory(event);
     if (isStreetManagerEvent(event)) {
       const metadata = event?.metadata || {};
       const street = metadata.street_name || metadata.location_description || event.location || townDisplayName();
@@ -1950,6 +2194,7 @@
 
   function signalDescription(event) {
     if (!event) return "No signal detail available.";
+    if (isPoliceEvent(event)) return `${policeFriendlyDescription(event)} This is historical Police.uk data, not a live incident alert.`;
     if (isStreetManagerEvent(event)) {
       const kind = streetManagerKind(event).toLowerCase();
       const base = `Street Manager ${kind === "street works" ? "street works" : kind.toLowerCase()} notification received`;
@@ -2040,8 +2285,11 @@
       const status = sourceStatus(info);
       const active = status.css === "connected";
       const connectedStreetManager = name === "Street Manager" && active;
+      const connectedPolice = name === "Police.uk" && active;
       const statusText = connectedStreetManager
         ? "Live street works notifications are being received."
+        : connectedPolice
+          ? "Historical public incident pattern data is available."
         : (status.css === "checking" ? "Waiting for next source refresh." : info.message || (status.css === "connected" ? "Live source is available." : "Temporarily unavailable."));
       return `
         <article class="source-card ${status.css === "connected" ? "connected" : ""}">
@@ -2067,22 +2315,27 @@
   function renderLatestSignals() {
     const container = document.getElementById("latestSignals");
     if (!latestEvents.length) {
+      renderIncidentPatternSummary();
       container.innerHTML = `<div class="empty-state">No recent public signals available yet. The dashboard will update as live sources refresh.</div>`;
       return;
     }
 
-    container.innerHTML = latestEvents.slice(0, 6).map(event => `
-      <article class="signal-card">
-        <span class="type-badge ${signalBadgeClass(event)}">${escapeHtml(signalLabel(event))}</span>
-        <h3 class="signal-title">${escapeHtml(signalTitle(event))}</h3>
-        <div class="signal-description">${escapeHtml(cleanPublicText(signalDescription(event)))}</div>
-        <div class="signal-meta">
-          <span>${escapeHtml(event.location || event.metadata?.street_name || townDisplayName())}</span>
-          <span>${escapeHtml(event.source || "Unknown source")}</span>
-          <span>${escapeHtml(formatTime(event.timestamp))}</span>
-        </div>
-      </article>
-    `).join("");
+    renderIncidentPatternSummary();
+    container.innerHTML = latestEvents.slice(0, 6).map(event => {
+      if (isPoliceEvent(event)) return renderPoliceSignalCard(event);
+      return `
+        <article class="signal-card">
+          <span class="type-badge ${signalBadgeClass(event)}">${escapeHtml(signalLabel(event))}</span>
+          <h3 class="signal-title">${escapeHtml(signalTitle(event))}</h3>
+          <div class="signal-description">${escapeHtml(cleanPublicText(signalDescription(event)))}</div>
+          <div class="signal-meta">
+            <span>${escapeHtml(event.location || event.metadata?.street_name || townDisplayName())}</span>
+            <span>${escapeHtml(event.source || "Unknown source")}</span>
+            <span>${escapeHtml(formatTime(event.timestamp))}</span>
+          </div>
+        </article>
+      `;
+    }).join("");
   }
 
   function severityIcon(severity) {
@@ -2389,16 +2642,27 @@
         title: `${sourceName}: ${signal.location || signal.zone || townDisplayName()}`,
         icon: markerIcon(signal)
       });
-      marker.bindPopup(`
-        <strong>${escapeHtml(signal.title || signalLabel(signal))}</strong><br>
-        Source: ${escapeHtml(sourceName)}<br>
-        Location: ${escapeHtml(signal.location || signal.zone || townDisplayName())}<br>
-        Zone: ${escapeHtml(signal.zone || "Unknown")}<br>
-        Time: ${escapeHtml(formatTime(signal.timestamp))}<br>
-        ${reference ? `Reference: ${escapeHtml(reference)}<br>` : ""}
-        Coordinate confidence: ${escapeHtml(coordinateConfidenceLabel(signal))}<br>
-        ${escapeHtml(signalDescription(signal))}
-      `);
+      const popupBody = isPoliceEvent(signal)
+        ? `
+          <strong>${escapeHtml(policeCategory(signal))}</strong><br>
+          Source: Police.uk public street-level data<br>
+          Approximate area: ${escapeHtml(policeApproxArea(signal))}<br>
+          Recorded by Police.uk: ${escapeHtml(formatPoliceRecordedPeriod(signal))}<br>
+          Detected by Town Warden: ${escapeHtml(formatTime(signal.timestamp))}<br>
+          Coordinate confidence: ${escapeHtml(coordinateConfidenceLabel(signal))}<br>
+          Historical data, not a live incident alert.
+        `
+        : `
+          <strong>${escapeHtml(signal.title || signalLabel(signal))}</strong><br>
+          Source: ${escapeHtml(sourceName)}<br>
+          Location: ${escapeHtml(signal.location || signal.zone || townDisplayName())}<br>
+          Zone: ${escapeHtml(signal.zone || "Unknown")}<br>
+          Time: ${escapeHtml(formatTime(signal.timestamp))}<br>
+          ${reference ? `Reference: ${escapeHtml(reference)}<br>` : ""}
+          Coordinate confidence: ${escapeHtml(coordinateConfidenceLabel(signal))}<br>
+          ${escapeHtml(signalDescription(signal))}
+        `;
+      marker.bindPopup(popupBody);
       marker.on("click", () => {
         const zone = mapData.zones.find(z => z.name === signal.zone);
         if (zone) selectZoneById(zone.id, false);

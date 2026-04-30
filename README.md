@@ -7,6 +7,12 @@ the project is designed to be adapted to other UK towns through configuration.
 It is a civic-tech prototype and portfolio project. It is not an official
 council, police, NHS, or emergency-service system.
 
+Current recommended clone version: `v1.1`.
+
+`v1.0` was the first cloneable town-template release. `v1.1` is the recommended
+clone version because it improves Police.uk data clarity and public dashboard
+wording. Existing historical tags should not be rewritten or deleted.
+
 ## Live Demo
 
 - Backend: [https://town-warden.onrender.com](https://town-warden.onrender.com)
@@ -23,9 +29,24 @@ council, police, NHS, or emergency-service system.
 
 ## Data Sources
 
-- Police.uk: public incident intelligence
+- Police.uk: historical public incident pattern data
 - Open-Meteo: weather context
 - Street Manager: live street works webhooks, filtered to the configured town area
+
+## Important: Police.uk Data Is Not Live
+
+Police.uk street-level data is historical, approximate, and usually updated
+monthly.
+
+Town Warden may detect or display a Police.uk record today, but the recorded
+incident month may be earlier. For example, a record displayed in April may
+refer to an incident recorded in March.
+
+Do not describe Police.uk records as live crime alerts. They should be presented
+as public incident pattern data for resident awareness and trend spotting.
+
+Emergency situations should always be handled through official services such as
+999 or 101.
 
 ## Main Features
 
@@ -167,10 +188,12 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 ## Release Notes
 
 - [Town Warden v1.0 — Cloneable Civic Intelligence Template](docs/releases/v1.0-town-template.md)
+- [Town Warden v1.1 — Police.uk Data Clarity Patch](CHANGELOG.md)
 
 ## Limitations
 
-- Police.uk locations are approximate/anonymised.
+- Police.uk records are historical, approximate/anonymised, and normally updated
+  monthly. They are resident-awareness pattern data, not live emergency alerts.
 - Street Manager relevance depends on available area fields, postcodes,
   authority names, coordinates, and the configured bounding box.
 - Current zones are coarse unless you add stronger local mapping data.
