@@ -38,7 +38,3 @@ externalPort = 80
 localPort = 8000
 externalPort = 8000
 exposeLocalhost = true
-
-[deployment]
-deploymentTarget = "vm"
-run = ["bash", "start.sh"]
