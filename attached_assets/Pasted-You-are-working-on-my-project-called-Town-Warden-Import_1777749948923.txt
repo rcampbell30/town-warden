@@ -1,0 +1,219 @@
+You are working on my project called Town Warden.
+
+Important:
+This task is FRONT-END, UX, COPY, BRANDING, RESPONSIVENESS, AND VISUAL POLISH ONLY.
+
+Do not change backend logic.
+Do not change API logic.
+Do not change connector logic.
+Do not change Police.uk integration.
+Do not change Open-Meteo integration.
+Do not change Street Manager webhook logic.
+Do not change database logic.
+Do not change Render deployment settings.
+Do not change Netlify deployment settings.
+Do not change environment variables.
+Do not weaken or remove admin/dev dashboard protection.
+Do not break existing data wiring.
+Do not rebuild the project from scratch.
+
+Project context:
+Town Warden is a civic information dashboard for Blackpool.
+It helps residents understand local incidents, weather/context, street works/road disruption, and area intelligence.
+The project is designed to eventually be cloneable for other towns, but the current public demo should feel unmistakably Blackpool.
+
+Current live project context:
+- Frontend is static HTML/CSS/JS on Netlify
+- Backend is FastAPI with WebSockets and SQLite on Render
+- Current working data sources include Police.uk and Open-Meteo
+- Street Manager webhook endpoints exist but may depend on external approval/activation
+- This is demo-ready, not production-ready
+- The public dashboard should be safe for residents to view
+- Dev/admin features should not be exposed casually to the public
+
+Important product truth:
+Police.uk data is not real-time. It can lag by weeks/months.
+Do not present Police.uk incidents as live events.
+Use careful language such as:
+- “recently published police data”
+- “latest available Police.uk data”
+- “historical incident data”
+- “published crime data”
+Avoid wording like:
+- “live crime”
+- “real-time crime”
+- “active incident”
+- “danger now”
+
+Goal:
+Make Town Warden look like a polished civic-tech dashboard for Blackpool residents.
+
+The site should feel:
+- trustworthy
+- local
+- useful
+- calm
+- readable
+- civic-minded
+- modern
+- not scary
+- not like a police panic app
+- not like a generic template
+
+Blackpool visual direction:
+Use a subtle Blackpool seaside identity:
+- seaside orange
+- tower red
+- promenade/coastal blues
+- pier/arcade accents
+- clean civic neutrals
+- subtle tower/pier/tram/shoreline motifs if appropriate
+
+Avoid:
+- gimmicky seaside overload
+- horror/crime fearmongering
+- unreadable bright colours
+- fake emergency styling
+- anything that suggests official council/police endorsement unless already stated
+
+Before editing:
+Inspect the full filebase carefully and identify:
+- frontend files
+- backend files
+- API/data wiring
+- public dashboard files
+- dev/admin dashboard files
+- styles/assets
+- README/docs
+
+Then produce a short audit first.
+
+Audit sections:
+1. Current frontend structure
+2. Current public dashboard UX
+3. Blackpool/local identity strength
+4. Incident card readability
+5. Map/layout presentation
+6. Mobile responsiveness
+7. Accessibility issues
+8. Public vs dev/admin dashboard exposure risks
+9. Copy/language risks around Police.uk data lag
+10. Highest-value safe improvements
+
+After the audit, implement a careful front-end polish pass only.
+
+Primary improvements:
+
+1. Public dashboard polish
+- Improve visual hierarchy
+- Improve dashboard cards
+- Improve incident/source labels
+- Improve timestamps/date explanations
+- Improve spacing and typography
+- Improve mobile layout
+- Improve empty/loading/error states
+- Make the page easier for residents to scan quickly
+
+2. Blackpool identity
+- Add subtle Blackpool-inspired visual treatment
+- Use local colour palette carefully
+- Add small tasteful visual motifs if possible
+- Make the project feel local without becoming tacky
+
+Suggested palette:
+- Seaside Orange: #F68712
+- Tower Red: #B22222
+- Coastal Blue: #1E90FF
+- Promenade Navy: #102A43
+- Sand/Off-white: #F8F4EC
+- Muted Grey: #6B7280
+
+3. Incident/data clarity
+- Make it visually obvious what each data source is
+- Clearly distinguish:
+  - Police.uk published data
+  - weather/context data
+  - street works/road disruption if present
+  - demo/test/pending sources if present
+- Add small explanatory copy where needed:
+  “Police.uk data is published retrospectively and should be read as historical/local context, not live emergency information.”
+
+4. Map and intelligence presentation
+- Improve map container styling if present
+- Improve cards around map intelligence
+- Make hotspot/context sections easier to understand
+- Avoid implying certainty from incomplete data
+- Use wording like “patterns”, “published reports”, “local context”, and “available data”
+
+5. Dev/admin dashboard safety
+- Check whether the public dashboard exposes links to dev/admin dashboard routes
+- If public links to dev/admin exist, flag them clearly
+- If safe to do front-end only, remove or hide casual public links to dev/admin tools
+- Do not implement backend security changes unless explicitly asked
+- Do not weaken existing protection
+
+6. Assets
+Create or improve, if appropriate:
+- favicon
+- simple Town Warden icon
+- Open Graph/social preview image
+- subtle Blackpool skyline/banner asset
+- dashboard empty-state icon
+- source icons/badges for Police.uk, weather, roadworks
+- simple civic trust graphic
+
+7. Copy improvements
+Improve public-facing copy so it explains:
+- what Town Warden does
+- what data sources it uses
+- what the data can and cannot tell residents
+- that Police.uk data is not live
+- that emergency situations should still use official emergency services
+
+Suggested copy tone:
+- calm
+- practical
+- plain English
+- civic
+- transparent about limitations
+
+Do not overclaim.
+Do not imply official endorsement.
+Do not imply live crime tracking.
+Do not create fear-based copy.
+Do not call the app production-ready.
+
+8. Cloneability awareness
+Because Town Warden is intended to be cloneable for other towns:
+- Keep Blackpool-specific styling organised and easy to replace later
+- If you add Blackpool-specific assets or text, keep them clearly named
+- Do not hard-code Blackpool everywhere unless it is already the Blackpool public demo
+- Add notes if needed explaining what future town-cloners would replace
+
+Deliverables:
+- Implement front-end/design/copy/assets improvements only
+- Add or update a short FRONTEND_NOTES.md or DESIGN_NOTES.md explaining the design system
+- Explain all files changed and why
+- List anything intentionally avoided because it was backend/security/data logic
+
+Strict constraints:
+- Front-end only
+- Preserve existing functionality
+- Preserve existing API calls
+- Preserve existing data wiring
+- Preserve backend and connector logic
+- No database changes
+- No deployment config changes
+- No fake live data
+- No official-police/council claims
+- No public panic language
+- No broad rebuild
+
+Final output:
+Give me:
+1. Summary of improvements made
+2. Files changed
+3. Assets created
+4. Any manual checks I should run
+5. Any public/dev dashboard exposure issues found
+6. Any follow-up tasks for Codex/backend later

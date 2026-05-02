@@ -3,7 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Town Warden - Public Dashboard</title>
+  <title>Town Warden — Blackpool Civic Intelligence</title>
+  <meta name="description" content="Town Warden brings together published Police.uk incident data, weather context, and street works notifications to help Blackpool residents understand local civic signals. Not an official emergency service.">
+  <meta property="og:title" content="Town Warden — Blackpool Civic Intelligence">
+  <meta property="og:description" content="Public Police.uk incident patterns, weather context, and street works for the Blackpool area. Historical data — not live alerts. For emergencies call 999.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#F68712">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23102A43'/%3E%3Crect x='14' y='3' width='4' height='18' fill='%23F68712'/%3E%3Crect x='10' y='13' width='12' height='3' fill='%23F68712'/%3E%3Crect x='8' y='20' width='16' height='9' rx='2' fill='%23F68712'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://unpkg.com">
   <link
     rel="stylesheet"
@@ -1469,6 +1475,74 @@
       box-shadow: 0 12px 30px rgba(13, 43, 59, 0.16);
     }
 
+    /* Data-currency badges: communicate how fresh each source's data is */
+    .source-currency {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 0.68rem;
+      font-weight: 850;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      border: 1px solid var(--line);
+      background: var(--panel-soft);
+      color: var(--ink-soft);
+    }
+
+    .source-currency.historical {
+      color: #7a5320;
+      background: #fff3dc;
+      border-color: #f0ca88;
+    }
+
+    .source-currency.realtime {
+      color: var(--green);
+      background: var(--green-soft);
+      border-color: color-mix(in srgb, var(--green) 32%, var(--line));
+    }
+
+    .source-currency.live {
+      color: #1a6fa8;
+      background: #eef6ff;
+      border-color: #b8d9f5;
+    }
+
+    .source-badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+      align-items: center;
+    }
+
+    /* Historical source card gets a subtle left accent */
+    .source-card.historical-source {
+      border-left: 4px solid #f0ca88;
+    }
+
+    /* Police.uk disclaimer strip inside source card */
+    .source-historical-note {
+      font-size: 0.8rem;
+      color: #7a5320;
+      background: #fff3dc;
+      border: 1px solid #f0ca88;
+      border-radius: var(--radius-sm);
+      padding: 7px 10px;
+      line-height: 1.4;
+    }
+
+    body.dark .source-currency.historical {
+      color: #f0b865;
+      background: rgba(240, 184, 101, 0.12);
+      border-color: rgba(240, 184, 101, 0.3);
+    }
+
+    body.dark .source-historical-note {
+      color: #f0b865;
+      background: rgba(240, 184, 101, 0.1);
+      border-color: rgba(240, 184, 101, 0.25);
+    }
+
     @media (max-width: 1180px) {
       .summary-grid,
       .signals-grid,
@@ -1659,8 +1733,8 @@
     <section class="section" aria-labelledby="liveSourcesTitle">
       <div class="section-heading">
         <div>
-          <h2 id="liveSourcesTitle">Live Sources</h2>
-          <p>Three real public data sources are checked and translated into local civic signals.</p>
+          <h2 id="liveSourcesTitle">Data Sources</h2>
+          <p>Three public data sources feed Town Warden. Police.uk data is published retrospectively — it shows patterns, not live emergencies. Weather and street works update more frequently.</p>
         </div>
       </div>
       <div id="publicSourceStatus" class="source-grid"><div class="loading-state">Loading source status...</div></div>
@@ -1753,8 +1827,8 @@
     <section class="section" aria-labelledby="insightsTitle">
       <div class="section-heading">
         <div>
-          <h2 id="insightsTitle">Agent Insights</h2>
-          <p>Source-aware summaries that explain patterns without presenting them as official council, police, NHS, or emergency-service advice.</p>
+          <h2 id="insightsTitle">Local Insights</h2>
+          <p>Pattern summaries drawn from available public sources. These explain local signals in plain English and are not official council, police, NHS, or emergency-service advice.</p>
         </div>
       </div>
       <div id="publicInsights" class="insights-grid"><div class="empty-state">No source-limited insights available yet.</div></div>
@@ -1815,22 +1889,31 @@
   let townConfig = { ...DEFAULT_TOWN_CONFIG };
   let SOURCE_PUBLIC_COPY = {
     "Police.uk": {
-      title: "Resident Awareness",
+      title: "Public Incident Patterns",
       source: "Police.uk",
-      description: "Public incident pattern data for local awareness.",
-      limitation: "Historical, approximate, and usually updated monthly."
+      description: "Published Police.uk street-level data showing local incident patterns for resident awareness.",
+      limitation: "This is retrospective, published data — usually updated monthly. It is not live emergency information.",
+      currency: "Updated monthly",
+      currencyType: "historical",
+      isHistorical: true
     },
     "Open-Meteo": {
-      title: "Weather",
+      title: "Weather Context",
       source: "Open-Meteo",
-      description: "Weather context for local conditions.",
-      limitation: "Weather context is not a replacement for official warnings."
+      description: "Weather context for local civic and outdoor conditions across the Blackpool area.",
+      limitation: "Weather context only — not a replacement for official Met Office warnings.",
+      currency: "Near real-time",
+      currencyType: "live",
+      isHistorical: false
     },
     "Street Manager": {
-      title: "Street Works",
+      title: "Street Works & Roadworks",
       source: "Street Manager",
-      description: "Live street works and roadworks notifications.",
-      limitation: "Filtered to the Blackpool pilot area where location data is available."
+      description: "Street works and roadworks notifications from the national Street Manager system.",
+      limitation: "Filtered to the Blackpool pilot area where location data is available.",
+      currency: "Live notifications",
+      currencyType: "realtime",
+      isHistorical: false
     }
   };
 
@@ -1912,7 +1995,7 @@
     document.getElementById("dashboardTitle").innerText = townConfig.dashboard_title || "Town Warden";
     document.getElementById("dashboardSubtitle").innerText = townConfig.dashboard_subtitle || `${displayName} Civic Intelligence Prototype`;
     document.getElementById("dashboardSummary").innerText = `A clearer view of local civic signals for ${displayName}.`;
-    document.getElementById("heroDescription").innerText = `${townConfig.dashboard_title || "Town Warden"} brings together public incident pattern data, weather context, and live street works notifications to help residents and stakeholders understand what is changing locally.`;
+    document.getElementById("heroDescription").innerText = `${townConfig.dashboard_title || "Town Warden"} combines published Police.uk incident patterns, weather context, and street works notifications to help residents and stakeholders understand what is changing locally.`;
     document.getElementById("publicDisclaimer").innerText = townConfig.public_disclaimer || DEFAULT_TOWN_CONFIG.public_disclaimer;
     document.getElementById("civicPictureIntro").innerText = `Plain-English status for what the system can currently see across the ${displayName} pilot area.`;
     document.getElementById("mapTitle").innerText = `${displayName} Risk & Signal Map`;
@@ -2298,14 +2381,19 @@
         : connectedPolice
           ? "Historical public incident pattern data is available."
         : (status.css === "checking" ? "Waiting for next source refresh." : info.message || (status.css === "connected" ? "Live source is available." : "Temporarily unavailable."));
+      const historicalClass = copy.isHistorical ? " historical-source" : "";
       return `
-        <article class="source-card ${status.css === "connected" ? "connected" : ""}">
-          <span class="status-badge ${status.css}">${status.label}</span>
+        <article class="source-card ${status.css === "connected" ? "connected" : ""}${historicalClass}">
+          <div class="source-badge-row">
+            <span class="status-badge ${status.css}">${status.label}</span>
+            <span class="source-currency ${copy.currencyType || "live"}">${copy.currency || "Public data"}</span>
+          </div>
           <div>
             <h3>${copy.title}</h3>
             <div class="source-label">Source: ${copy.source}</div>
           </div>
           <p>${copy.description}</p>
+          ${copy.isHistorical ? `<div class="source-historical-note">Police.uk data is published retrospectively and may lag by weeks or months. Use for local pattern awareness, not live incident tracking.</div>` : ""}
           <div class="meta">${escapeHtml(statusText)}</div>
           <div class="source-meta-grid">
             <div class="metric-row"><span>Records</span><strong>${info.records_returned ?? 0}</strong></div>
@@ -2323,7 +2411,7 @@
     const container = document.getElementById("latestSignals");
     if (!latestEvents.length) {
       renderIncidentPatternSummary();
-      container.innerHTML = `<div class="empty-state">No recent public signals available yet. The dashboard will update as live sources refresh.</div>`;
+      container.innerHTML = `<div class="empty-state">No recent signals yet. Town Warden checks its data sources every minute — signals will appear here as they are collected.</div>`;
       return;
     }
 
@@ -2370,7 +2458,7 @@
   function renderPublicInsights() {
     const container = document.getElementById("publicInsights");
     if (!latestInsights.length) {
-      container.innerHTML = `<div class="empty-state">No source-aware insights available yet. Town Warden will add summaries as local signals build up.</div>`;
+      container.innerHTML = `<div class="empty-state">No pattern summaries available yet. Local insights will appear here as public sources contribute enough signals to analyse.</div>`;
       return;
     }
 
@@ -2384,7 +2472,7 @@
       <article class="insight-card ${item.severity || "info"}">
         <span class="severity-badge ${escapeHtml(item.severity || "info")}">${severityIcon(item.severity)}</span>
         <div>
-          <div class="source-label">Agent: ${escapeHtml(item.agent || "Town Warden")}</div>
+          <div class="source-label">Analysis: ${escapeHtml(item.agent || "Town Warden")}</div>
           <h3>${escapeHtml(title)}</h3>
         </div>
         <p>${escapeHtml(summary)}</p>
