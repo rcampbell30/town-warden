@@ -200,8 +200,15 @@
   // that are removed from the public civic dashboard (frontend/index.html).
 
   const IS_LOCAL_FRONTEND = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-  const API_BASE = IS_LOCAL_FRONTEND ? "http://127.0.0.1:8000" : "https://town-warden.onrender.com";
-  const WS_URL = IS_LOCAL_FRONTEND ? "ws://127.0.0.1:8000/ws" : "wss://town-warden.onrender.com/ws";
+  const IS_REPLIT = window.location.hostname.endsWith(".replit.dev") || window.location.hostname.endsWith(".repl.co");
+  function getReplitBackendBase() {
+    const host = window.location.hostname;
+    const proto = window.location.protocol;
+    const wsProto = proto === "https:" ? "wss:" : "ws:";
+    return { http: `${proto}//${host}:8000`, ws: `${wsProto}//${host}:8000` };
+  }
+  const API_BASE = IS_LOCAL_FRONTEND ? "http://127.0.0.1:8000" : (IS_REPLIT ? getReplitBackendBase().http : "https://town-warden.onrender.com");
+  const WS_URL = IS_LOCAL_FRONTEND ? "ws://127.0.0.1:8000/ws" : (IS_REPLIT ? getReplitBackendBase().ws + "/ws" : "wss://town-warden.onrender.com/ws");
 
   let ws = null;
   let latestInsights = [];
