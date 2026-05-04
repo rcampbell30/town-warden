@@ -1,14 +1,9 @@
 # Screenshots
 
-Capture real screenshots from:
+![Public dashboard](public-dashboard.png)
 
-https://town-warden.netlify.app
+![Live sources](live-sources.png)
 
-Expected image files:
+![Map view](map-view.png)
 
-- `public-dashboard.png`
-- `live-sources.png`
-- `map-view.png`
-- `agent-insights.png`
-
-Do not add mock or invented screenshots.
+![Agent insights](agent-insights.png)
