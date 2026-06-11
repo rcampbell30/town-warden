@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Town Warden - Developer Dashboard</title>
+  <title>Town Warden - Developer Dashboard Paused</title>
   <style>
     :root {
       --bg: #0b1220;
@@ -13,89 +13,80 @@
       --muted: #94a3b8;
       --border: #334155;
       --brand: #2563eb;
-      --danger: #b91c1c;
+      --warn: #f59e0b;
     }
+
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
+      min-height: 100vh;
       padding: 18px;
       font-family: Inter, Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.45;
+      line-height: 1.5;
     }
 
-    .page { max-width: 1280px; margin: 0 auto; }
-    .topbar { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 14px; align-items: start; }
-    h1 { margin: 0; font-size: 2rem; }
-    h2 { margin: 0 0 10px; font-size: 1.25rem; }
-    h3 { margin: 8px 0; font-size: 1rem; }
+    .page {
+      max-width: 980px;
+      margin: 0 auto;
+      display: grid;
+      gap: 14px;
+    }
 
-    .subtitle, .meta { color: var(--muted); }
-    .status-pill { border-radius: 999px; border: 1px solid #1d4ed8; background: #1e3a8a; padding: 8px 12px; font-weight: 700; }
-    .nav-link a { color: #93c5fd; text-decoration: none; font-weight: 700; }
-
-    .card, .panel {
+    .topbar,
+    .card {
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 14px;
       background: var(--surface);
-      padding: 12px;
-      margin-bottom: 12px;
+      padding: 16px;
     }
 
-    .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-    .metric {
-      border: 1px solid var(--border);
-      border-radius: 10px;
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+
+    h1 { margin: 0; font-size: 2rem; }
+    h2 { margin: 0 0 10px; font-size: 1.2rem; }
+    p { margin: 0; }
+
+    .subtitle,
+    .meta { color: var(--muted); }
+
+    .status-pill {
+      border-radius: 999px;
+      border: 1px solid rgba(245, 158, 11, 0.55);
+      background: rgba(245, 158, 11, 0.14);
+      color: #fcd68a;
+      padding: 8px 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .notice {
+      border-left: 5px solid var(--warn);
       background: var(--surface-2);
-      padding: 10px;
-    }
-    .metric strong { display: block; font-size: 1.25rem; }
-
-    .list-item {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px;
-      background: var(--surface-2);
-      margin-bottom: 8px;
     }
 
-    .insight {
-      border: 1px solid var(--border);
-      border-left: 5px solid #60a5fa;
-      border-radius: 10px;
-      padding: 10px;
-      margin-bottom: 8px;
-      background: var(--surface-2);
-    }
-    .insight.warning { border-left-color: #f59e0b; }
-    .insight.high, .insight.critical, .insight.danger { border-left-color: #ef4444; }
-
-    .controls-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
-    button {
-      border: 0;
-      border-radius: 9px;
-      padding: 8px 11px;
-      cursor: pointer;
-      font-weight: 700;
-      background: var(--brand);
-      color: white;
-    }
-    button.secondary { background: #374151; }
-    button.danger { background: var(--danger); }
-
-    select {
-      border: 1px solid var(--border);
-      border-radius: 9px;
-      padding: 8px;
-      background: var(--surface-2);
-      color: var(--text);
+    a {
+      color: #93c5fd;
+      text-decoration: none;
+      font-weight: 800;
     }
 
-    @media (max-width: 980px) {
-      .grid-2 { grid-template-columns: 1fr; }
-      .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    a:hover { text-decoration: underline; }
+
+    ul {
+      margin: 8px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+
+    @media (max-width: 760px) {
       .topbar { flex-direction: column; }
     }
   </style>
@@ -105,497 +96,34 @@
     <div class="topbar">
       <div>
         <h1>Town Warden Developer Dashboard</h1>
-        <div class="subtitle">Diagnostics, raw metadata, and internal tooling</div>
-        <div class="nav-link"><a href="./index.html">Back to public dashboard</a></div>
+        <div class="subtitle">Diagnostics and internal tooling are paused.</div>
+        <div><a href="./index.html">Back to public dashboard</a></div>
       </div>
-      <div id="statusPill" class="status-pill">Connecting...</div>
+      <div class="status-pill" role="status">Backend disconnected</div>
     </div>
 
-    <div class="grid-2">
-      <div class="card">
-        <h2>Raw Source Health</h2>
-        <button onclick="loadSourceHealth()">Refresh Source Health</button>
-        <div id="devSourceHealth" class="meta">Waiting for source diagnostics.</div>
-      </div>
-      <div class="card">
-        <h2>Analytics Intelligence</h2>
-        <button onclick="loadAnalytics()">Refresh Analytics</button>
-        <div id="devAnalytics" class="meta">Waiting for analytics intelligence.</div>
-      </div>
-    </div>
+    <section class="card notice">
+      <h2>Render backend calls are disabled</h2>
+      <p class="meta">This developer page has been converted to a static paused page so it does not call the exhausted Render backend or open a websocket connection.</p>
+    </section>
 
-    <div class="card">
-      <h2>Status Diagnostics</h2>
-      <div id="statusDiagnostics" class="meta">Waiting for runtime status diagnostics.</div>
-    </div>
+    <section class="card">
+      <h2>Paused features</h2>
+      <p class="meta">These tools will remain unavailable until Town Warden is connected to a hosted backend again:</p>
+      <ul>
+        <li>Raw source health diagnostics</li>
+        <li>Runtime status diagnostics</li>
+        <li>Street Manager ingestion checks</li>
+        <li>Map, history, analytics, and insight refreshes</li>
+        <li>Developer POST actions such as force refresh and reset database</li>
+        <li>Agent websocket communication logs</li>
+      </ul>
+    </section>
 
-    <div class="card">
-      <h2>Street Manager Ingestion</h2>
-      <button onclick="refreshStreetManagerIngestion()">Refresh Ingestion</button>
-      <div id="streetManagerIngestion" class="meta">Waiting for Street Manager ingestion diagnostics.</div>
-    </div>
-
-    <div class="card">
-      <h2>Map Intelligence</h2>
-      <button onclick="loadMapDiagnostics()">Refresh Map Diagnostics</button>
-      <div id="mapDiagnostics" class="meta">Waiting for map intelligence diagnostics.</div>
-    </div>
-
-    <div class="card">
-      <h2>History Intelligence</h2>
-      <div class="controls-row">
-        <button onclick="loadHistory()">Refresh History</button>
-        <select id="typeFilter" onchange="loadHistory()">
-          <option value="">All Types</option>
-          <option value="incident">Incident</option>
-          <option value="infrastructure">Infrastructure</option>
-          <option value="waste">Waste</option>
-          <option value="transport">Transport</option>
-          <option value="weather">Weather</option>
-        </select>
-        <select id="sourceFilter" onchange="loadHistory()">
-          <option value="">All Sources</option>
-          <option value="Police.uk">Police.uk</option>
-          <option value="Open-Meteo">Open-Meteo</option>
-          <option value="Street Manager">Street Manager</option>
-          <option value="Simulation">Simulation</option>
-        </select>
-      </div>
-      <div id="devHistory" class="meta">Waiting for history intelligence.</div>
-    </div>
-
-    <div class="grid-2">
-      <div class="panel">
-        <h2>Agent Comms Log</h2>
-        <div class="controls-row">
-          <button class="secondary" onclick="pauseComms()">Pause</button>
-          <button class="secondary" onclick="resumeComms()">Resume</button>
-          <button class="secondary" onclick="clearVisibleComms()">Clear Visible Log</button>
-        </div>
-        <div class="meta" id="commsState">Live updates active.</div>
-        <div id="agentComms"><div class="meta">No internal messages yet.</div></div>
-      </div>
-      <div class="panel">
-        <h2>Raw Agent Insights</h2>
-        <div id="devInsights"><div class="meta">Waiting for raw insight metadata.</div></div>
-      </div>
-    </div>
-
-    <div class="card" id="developerControlsCard">
-      <h2>Developer Controls</h2>
-      <div class="meta">Admin actions require the backend admin token each time. The token is never stored in this page.</div>
-      <div class="controls-row">
-        <button onclick="devAction('/dev/force-refresh')">Force Source Refresh</button>
-        <button class="secondary" onclick="devAction('/dev/clear-live-feed')">Clear Live Feed</button>
-        <button class="secondary" onclick="devAction('/dev/clear-risk-map')">Clear Risk Map</button>
-        <button class="danger" onclick="devAction('/dev/reset-database', true)">Reset Database</button>
-      </div>
-      <div id="devPanel" class="meta">Use locally for diagnostics.</div>
-    </div>
+    <section class="card">
+      <h2>How to re-enable later</h2>
+      <p class="meta">Restore the previous developer dashboard implementation or wire this page to a new backend URL once a non-Render backend is available.</p>
+    </section>
   </div>
-
-  <script>
-  // Public/developer separation note:
-  // This page intentionally contains raw operational detail and controls
-  // that are removed from the public civic dashboard (frontend/index.html).
-
-  const IS_LOCAL_FRONTEND = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-  const IS_REPLIT = window.location.hostname.endsWith(".replit.dev") || window.location.hostname.endsWith(".repl.co");
-  function getReplitBackendBase() {
-    const host = window.location.hostname;
-    const proto = window.location.protocol;
-    const wsProto = proto === "https:" ? "wss:" : "ws:";
-    return { http: `${proto}//${host}:8000`, ws: `${wsProto}//${host}:8000` };
-  }
-  const API_BASE = IS_LOCAL_FRONTEND ? "http://127.0.0.1:8000" : (IS_REPLIT ? getReplitBackendBase().http : "https://town-warden.onrender.com");
-  const WS_URL = IS_LOCAL_FRONTEND ? "ws://127.0.0.1:8000/ws" : (IS_REPLIT ? getReplitBackendBase().ws + "/ws" : "wss://town-warden.onrender.com/ws");
-
-  let ws = null;
-  let latestInsights = [];
-  let latestComms = [];
-  let latestSourceHealth = {};
-  let latestAnalytics = {};
-  let latestHistory = [];
-  let latestMapData = { events: [], signals: [], map_diagnostics: {} };
-  let latestTownConfig = {};
-  let commsPaused = false;
-
-  function updateHeroStatus(connected) {
-    document.getElementById("statusPill").innerText = connected ? "Backend Connected" : "Backend Disconnected";
-  }
-
-  function formatValue(value) {
-    return value ?? 0;
-  }
-
-  function formatTime(value) {
-    if (!value) return "n/a";
-    const date = new Date(value);
-    return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString();
-  }
-
-  function streetManagerAnalyticsCount() {
-    const row = (latestAnalytics.events_by_source || []).find(item => item.source === "Street Manager");
-    return row?.count || 0;
-  }
-
-  function latestStreetMetadata(event) {
-    return event?.metadata || {};
-  }
-
-  function renderStatusDiagnostics(data = {}) {
-    const sourceErrors = data.source_errors || [];
-    const active = data.active_sources_count ?? Object.values(latestSourceHealth).filter(info => {
-      const status = String(info?.status || "").toLowerCase();
-      return ["connected", "healthy", "ok", "live", "enabled"].includes(status);
-    }).length;
-    const total = data.total_sources_count ?? 3;
-
-    document.getElementById("statusDiagnostics").innerHTML = `
-      <div class="metric-grid">
-        <div class="metric"><span>System health</span><strong>${data.system_health_score ?? "n/a"}</strong></div>
-        <div class="metric"><span>Civic risk</span><strong>${data.civic_risk_score ?? data.civic_risk_label ?? "n/a"}</strong></div>
-        <div class="metric"><span>Active sources</span><strong>${active}/${total}</strong></div>
-        <div class="metric"><span>Dev routes protected</span><strong>${String(data.dev_routes_protected ?? "n/a")}</strong></div>
-        <div class="metric"><span>Town config</span><strong>${data.display_name || latestTownConfig.display_name || "n/a"}</strong></div>
-      </div>
-      <div class="list-item">
-        <strong>Source errors</strong>
-        <div class="meta">${sourceErrors.length ? sourceErrors.map(item => `${item.source}: ${item.status} - ${item.message || ""}`).join("<br>") : "none"}</div>
-      </div>
-      <div class="list-item">
-        <strong>Highest risk zone</strong>
-        <div class="meta">${data.highest_risk_zone ? `${data.highest_risk_zone.name}: ${data.highest_risk_zone.score} (${data.highest_risk_zone.risk_level})` : "n/a"}</div>
-      </div>
-    `;
-  }
-
-  function mapEvents() {
-    return latestMapData.events || latestMapData.signals || [];
-  }
-
-  function mapReference(event) {
-    const metadata = event?.metadata || {};
-    return event?.reference || metadata.reference || metadata.permit_reference || metadata.works_reference || metadata.activity_reference || metadata.street_manager_id || "n/a";
-  }
-
-  function renderMapDiagnostics() {
-    const diagnostics = latestMapData.map_diagnostics || {};
-    const events = mapEvents();
-    const exact = diagnostics.exact_coordinate_events ?? events.filter(event => event.coordinate_confidence === "exact").length;
-    const approximate = diagnostics.approximate_coordinate_events ?? events.filter(event => event.coordinate_confidence === "approximate").length;
-    const fallback = diagnostics.zone_fallback_events ?? events.filter(event => event.coordinate_confidence === "zone_fallback" || event.is_approximate).length;
-    const latestStreet = diagnostics.latest_mapped_street_manager_event || events.find(event => event.source === "Street Manager");
-    const coordinateMode = exact > 0 ? "real coordinates present" : fallback > 0 ? "zone fallback only" : "no mapped events yet";
-
-    document.getElementById("mapDiagnostics").innerHTML = `
-      <div class="metric-grid">
-        <div class="metric"><span>Total mapped</span><strong>${diagnostics.total_mapped_events ?? events.length}</strong></div>
-        <div class="metric"><span>Exact</span><strong>${exact}</strong></div>
-        <div class="metric"><span>Approx / fallback</span><strong>${Number(approximate || 0) + Number(fallback || 0)}</strong></div>
-        <div class="metric"><span>Unmapped</span><strong>${diagnostics.unmapped_events ?? 0}</strong></div>
-      </div>
-      <div class="list-item">
-        <strong>Coordinate mode</strong>
-        <div class="meta">${coordinateMode}</div>
-        <div class="meta">approximate coordinate events: ${approximate}</div>
-        <div class="meta">zone fallback events: ${fallback}</div>
-      </div>
-      <div class="list-item">
-        <strong>Latest mapped Street Manager event</strong>
-        <div class="meta">text: ${latestStreet?.description || latestStreet?.text || "n/a"}</div>
-        <div class="meta">topic: ${latestStreet?.metadata?.topic || "n/a"}</div>
-        <div class="meta">location: ${latestStreet?.location || latestStreet?.zone || "n/a"}</div>
-        <div class="meta">reference: ${mapReference(latestStreet)}</div>
-        <div class="meta">coordinate confidence: ${latestStreet?.coordinate_confidence || "n/a"}</div>
-      </div>
-    `;
-  }
-
-  function renderStreetManagerIngestion() {
-    const info = latestSourceHealth["Street Manager"] || {};
-    const status = String(info.status || "unknown");
-    const receiving = status.toLowerCase() === "connected" || Number(info.records_returned || 0) > 0 || streetManagerAnalyticsCount() > 0;
-    const latestStreetEvent = latestHistory.find(row => row.source === "Street Manager");
-    const metadata = latestStreetMetadata(latestStreetEvent);
-    const totalStreetEvents = streetManagerAnalyticsCount();
-
-    document.getElementById("streetManagerIngestion").innerHTML = `
-      <div class="metric-grid">
-        <div class="metric"><span>Payloads received</span><strong>${receiving ? "yes" : "no"}</strong></div>
-        <div class="metric"><span>Status</span><strong>${status}</strong></div>
-        <div class="metric"><span>Total SM events</span><strong>${totalStreetEvents}</strong></div>
-        <div class="metric"><span>Duplicates</span><strong>${formatValue(info.duplicates_skipped)}</strong></div>
-        <div class="metric"><span>Filtered out-of-area</span><strong>${formatValue(info.filtered_out_of_area)}</strong></div>
-      </div>
-      <div class="list-item">
-        <strong>Latest Street Manager message</strong>
-        <div class="meta">last received timestamp: ${formatTime(latestStreetEvent?.timestamp || info.last_checked)}</div>
-        <div class="meta">latest event text: ${latestStreetEvent?.text || "n/a"}</div>
-        <div class="meta">latest topic: ${metadata.topic || "n/a"}</div>
-        <div class="meta">latest mapped street/location: ${metadata.street_name || metadata.location_description || latestStreetEvent?.location || "n/a"}</div>
-        <div class="meta">latest reference: ${metadata.reference || metadata.permit_reference || metadata.works_reference || metadata.activity_reference || "n/a"}</div>
-        <div class="meta">records returned: ${formatValue(info.records_returned)} | events emitted: ${formatValue(info.events_emitted)} | new queued: ${formatValue(info.new_events_queued)} | filtered out-of-area: ${formatValue(info.filtered_out_of_area)}</div>
-        <div class="meta">latest message: ${info.message || "n/a"}</div>
-      </div>
-    `;
-  }
-
-  function collapseIdle(logs) {
-    const out = [];
-    for (const entry of (logs || []).slice(-50)) {
-      const idle = /waiting for next source refresh|no new event available/i.test(entry.message || "");
-      const prev = out[out.length - 1];
-      if (idle && prev && prev.agent === entry.agent && prev.idle) {
-        prev.repeat = (prev.repeat || 1) + 1;
-        prev.message = `${entry.agent} idle - repeated ${prev.repeat} cycles`;
-        prev.timestamp = entry.timestamp;
-      } else {
-        out.push({ ...entry, idle, repeat: 1 });
-      }
-    }
-    return out;
-  }
-
-  function renderAgentComms(logs) {
-    if (commsPaused) return;
-    latestComms = collapseIdle(logs || []);
-    const container = document.getElementById("agentComms");
-    if (!latestComms.length) {
-      container.innerHTML = `<div class="meta">No internal messages yet.</div>`;
-      return;
-    }
-
-    container.innerHTML = latestComms.slice(-50).reverse().map(entry => `
-      <div class="list-item">
-        <strong>${entry.agent || "System"}</strong>
-        <div>${entry.message || "No message."}</div>
-        <div class="meta">${entry.timestamp || ""}</div>
-      </div>
-    `).join("");
-  }
-
-  function renderDevInsights() {
-    const container = document.getElementById("devInsights");
-    if (!latestInsights.length) {
-      container.innerHTML = `<div class="meta">No raw insight metadata yet.</div>`;
-      return;
-    }
-
-    container.innerHTML = latestInsights.slice(-50).reverse().map(item => `
-      <div class="insight ${item.severity || "info"}">
-        <strong>${item.title || "Insight"}</strong>
-        <div>${item.summary || "No summary."}</div>
-        <div class="meta">pattern_type: ${item.pattern_type || "general"} | public_safe: ${String(item.public_safe)}</div>
-        <div class="meta">confidence: ${item.confidence || 0} | severity: ${item.severity || "info"}</div>
-        <div class="meta">source_context: ${item.source_context || "n/a"}</div>
-        <div class="meta">timestamp: ${item.timestamp || ""}</div>
-        ${(item.evidence || []).length ? `<ul>${item.evidence.map(line => `<li>${line}</li>`).join("")}</ul>` : ""}
-        ${item.suggested_action ? `<div class="meta">suggested_action: ${item.suggested_action}</div>` : ""}
-      </div>
-    `).join("");
-  }
-
-  function renderDevSourceHealth(payload) {
-    const sources = payload.sources || payload.source_health || {};
-    latestSourceHealth = sources;
-    const entries = Object.entries(sources);
-    document.getElementById("devSourceHealth").innerHTML = entries.length ? entries.map(([name, info]) => `
-      <div class="list-item">
-        <strong>${name}</strong>
-        <div class="meta">status: ${info.status || "unknown"}</div>
-        <div class="meta">records returned: ${info.records_returned ?? 0}</div>
-        <div class="meta">candidate events / events emitted: ${info.events_emitted ?? 0}</div>
-        <div class="meta">new queued: ${info.new_events_queued ?? 0}</div>
-        <div class="meta">duplicates skipped: ${info.duplicates_skipped ?? 0}</div>
-        <div class="meta">filtered out-of-area: ${info.filtered_out_of_area ?? 0}</div>
-        <div class="meta">last checked: ${info.last_checked || "n/a"}</div>
-        <div class="meta">message: ${info.message || ""}</div>
-      </div>
-    `).join("") : `<div class="meta">No source health yet.</div>`;
-    renderStreetManagerIngestion();
-  }
-
-  async function loadSourceHealth() {
-    try {
-      const response = await fetch(`${API_BASE}/source-health`);
-      if (!response.ok) throw new Error("source health unavailable");
-      const data = await response.json();
-      renderDevSourceHealth(data);
-      renderStatusDiagnostics(data);
-    } catch {
-      document.getElementById("devSourceHealth").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
-      document.getElementById("statusDiagnostics").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
-    }
-  }
-
-  async function loadTownConfig() {
-    try {
-      const response = await fetch(`${API_BASE}/town-config`);
-      if (!response.ok) throw new Error("town config unavailable");
-      latestTownConfig = await response.json();
-      renderStatusDiagnostics({});
-    } catch {
-      latestTownConfig = {};
-    }
-  }
-
-  async function loadInsights() {
-    try {
-      const response = await fetch(`${API_BASE}/insights`);
-      if (!response.ok) throw new Error("insights unavailable");
-      const data = await response.json();
-      latestInsights = data.insights || [];
-      renderDevInsights();
-    } catch {
-      document.getElementById("devInsights").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
-    }
-  }
-
-  async function loadAnalytics() {
-    try {
-      const response = await fetch(`${API_BASE}/analytics`);
-      if (!response.ok) throw new Error("analytics unavailable");
-      const data = await response.json();
-      latestAnalytics = data;
-      const typeRows = (data.events_by_type || []).map(row => `<li>${row.type}: ${row.count}</li>`).join("");
-      const sourceRows = (data.events_by_source || []).map(row => `<li>${row.source}: ${row.count}</li>`).join("");
-      const locations = (data.top_locations || []).map(row => `<li>${row.location}: ${row.count}</li>`).join("");
-      document.getElementById("devAnalytics").innerHTML = `
-        <div class="list-item"><strong>Total events:</strong> ${data.total_events || 0}</div>
-        <div class="list-item"><strong>Total alerts:</strong> ${data.total_alerts || 0}</div>
-        <div class="list-item"><strong>Duplicates skipped:</strong> ${data.duplicates_skipped || 0}</div>
-        <div class="list-item"><strong>Real vs simulated:</strong> real ${data.real_vs_simulated?.real || 0}, simulated ${data.real_vs_simulated?.simulated || 0}</div>
-        <div class="list-item"><strong>Events by type</strong><ul>${typeRows || "<li>None</li>"}</ul></div>
-        <div class="list-item"><strong>Events by source</strong><ul>${sourceRows || "<li>None</li>"}</ul></div>
-        <div class="list-item"><strong>Top locations</strong><ul>${locations || "<li>None</li>"}</ul></div>
-      `;
-      renderStreetManagerIngestion();
-    } catch {
-      document.getElementById("devAnalytics").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
-    }
-  }
-
-  async function loadMapDiagnostics() {
-    try {
-      const response = await fetch(`${API_BASE}/map-data`);
-      if (!response.ok) throw new Error("map data unavailable");
-      latestMapData = await response.json();
-      renderMapDiagnostics();
-    } catch {
-      document.getElementById("mapDiagnostics").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
-    }
-  }
-
-  async function loadHistory() {
-    try {
-      const typeFilter = document.getElementById("typeFilter").value;
-      const sourceFilter = document.getElementById("sourceFilter").value;
-      const response = await fetch(`${API_BASE}/history`);
-      if (!response.ok) throw new Error("history unavailable");
-      let rows = await response.json();
-      latestHistory = Array.isArray(rows) ? rows : [];
-      rows = latestHistory;
-      if (typeFilter) rows = rows.filter(row => row.type === typeFilter);
-      if (sourceFilter) rows = rows.filter(row => row.source === sourceFilter);
-
-      document.getElementById("devHistory").innerHTML = rows.length ? rows.slice(0, 50).map(row => `
-        <div class="list-item">
-          <strong>${String(row.type).toUpperCase()}</strong> - ${row.location}
-          <div>${row.text}</div>
-          <div class="meta">${row.source} | ${row.timestamp}</div>
-        </div>
-      `).join("") : `<div class="meta">No history matches current filters.</div>`;
-      renderStreetManagerIngestion();
-    } catch {
-      document.getElementById("devHistory").innerHTML = `<div class="meta">Backend waking or temporarily unavailable.</div>`;
-    }
-  }
-
-  function refreshStreetManagerIngestion() {
-    loadSourceHealth();
-    loadAnalytics();
-    loadHistory();
-    loadMapDiagnostics();
-  }
-
-  async function devAction(path, confirmFirst = false) {
-    if (confirmFirst && !confirm("Reset local runtime and database?")) return;
-
-    const token = prompt("Enter admin token for this action. It will not be stored.");
-    if (!token) {
-      document.getElementById("devPanel").innerText = "Developer action cancelled: admin token required.";
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API_BASE}${path}`, {
-        method: "POST",
-        headers: {
-          "x-admin-token": token
-        }
-      });
-      const data = await response.json();
-      document.getElementById("devPanel").innerText = data.message || data.detail || "Action finished.";
-      loadSourceHealth();
-      loadHistory();
-      loadAnalytics();
-      loadInsights();
-    } catch {
-      document.getElementById("devPanel").innerText = "Developer action failed.";
-    }
-  }
-
-  function pauseComms() {
-    commsPaused = true;
-    document.getElementById("commsState").innerText = "Log paused.";
-  }
-
-  function resumeComms() {
-    commsPaused = false;
-    document.getElementById("commsState").innerText = "Live updates active.";
-    renderAgentComms(latestComms);
-  }
-
-  function clearVisibleComms() {
-    latestComms = [];
-    document.getElementById("agentComms").innerHTML = `<div class="meta">Visible log cleared.</div>`;
-  }
-
-  function connectWebSocket() {
-    ws = new WebSocket(WS_URL);
-    ws.onopen = () => updateHeroStatus(true);
-    ws.onerror = () => updateHeroStatus(false);
-    ws.onclose = () => {
-      updateHeroStatus(false);
-      setTimeout(connectWebSocket, 5000);
-    };
-
-    ws.onmessage = (message) => {
-      const data = JSON.parse(message.data);
-      latestInsights = data.insights || latestInsights;
-      renderDevInsights();
-      renderAgentComms((data.agent_log || []).slice(-50));
-      renderDevSourceHealth({ sources: data.source_health || data.sources || {} });
-      renderStatusDiagnostics(data);
-      renderStreetManagerIngestion();
-      renderMapDiagnostics();
-    };
-  }
-
-  setInterval(loadSourceHealth, 12000);
-  setInterval(loadHistory, 12000);
-  setInterval(loadAnalytics, 18000);
-  setInterval(loadMapDiagnostics, 18000);
-  setInterval(loadInsights, 20000);
-
-  loadTownConfig();
-  loadSourceHealth();
-  loadHistory();
-  loadAnalytics();
-  loadMapDiagnostics();
-  loadInsights();
-  connectWebSocket();
-  </script>
 </body>
 </html>
